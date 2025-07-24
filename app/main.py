@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .config import settings 
 
 
 app = FastAPI(
-	title="Sibol API",
-	description="A backend API for Sibol.",
-	version="1.0.0",
+	title=settings.APP_NAME,
+	version=settings.APP_VERSION,
+	description=settings.APP_DESCRIPTION,
 )
 
 app.add_middleware(
