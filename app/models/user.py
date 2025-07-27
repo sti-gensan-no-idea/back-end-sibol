@@ -1,22 +1,23 @@
 # app/models/user.py
-from sqlalchemy import Column, Integer, String, Enum, Boolean, DateTime
-from sqlalchemy.sql import func
+from sqlalchemy import Column, Integer, String, Enum, Boolean
+from sqlalchemy.orm import relationship
 from app.database.database import Base
 import enum
 
 class UserRole(enum.Enum):
-    ADMIN = "admin"
-    SUB_ADMIN = "sub_admin"
-    AGENT = "agent"
-    CLIENT = "client"
+    ADMIN = "ADMIN"
+    SUB_ADMIN = "SUB_ADMIN"
+    AGENT = "AGENT"
+    CLIENT = "CLIENT"
 
 class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True)
+    password = Column(String)
     role = Column(Enum(UserRole), default=UserRole.CLIENT)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    properties = relationship("Property", back_populates="owner")
+    contracts = relationship("Contract", back_populates="tenant")

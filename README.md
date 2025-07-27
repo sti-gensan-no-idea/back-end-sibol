@@ -17,32 +17,36 @@ Follow the following steps to setup the project.
    ```bash
    python3 -m venv .venv
    ```
+2. Install uv (package installer and resolver):
+```pip install uv```
+ ```uv venv```
 
-2. Activate the virtual environment:
+
+3. Activate the virtual environment:
 
    ```bash
    # Windows
    .\venv\Scripts\activate
 
    # macOS / Linux
-   source venv/bin/activate
+   source .venv/bin/activate
    ```
 
-3. Install all packages:
+4. Install all packages:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Get the `.env` file from the admin, and paste inside the root directory.
+5. Get the `.env` file from the admin, and paste inside the root directory.
 
-5. Run the project:
+6. Run the project:
 
    ```bash
    uvicorn app.main:app
    ```
 
-6. Open your browser and go to `http://localhost:8000/docs` to access the API documentation.
+7. Open your browser and go to `http://localhost:8000/docs` to access the API documentation.
 
 ## License
 
