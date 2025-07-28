@@ -1,0 +1,20 @@
+[
+    {
+        "id": 1,
+        "user_id": 3,
+        "amount": 50000.00,
+        "status": "PENDING",
+        "transaction_id": "payfusion-txn-001",
+        "description": "Initial payment for Beachfront Villa",
+        "created_at": "2025-07-28T15:00:00+00:00"
+    },
+    {
+        "id": 2,
+        "user_id": 4,
+        "amount": 30000.00,
+        "status": "PENDING",
+        "transaction_id": "payfusion-txn-002",
+        "description": "Deposit for City Apartment",
+        "created_at": "2025-07-28T15:10:00+00:00"
+    }
+]

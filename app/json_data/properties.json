@@ -1,0 +1,20 @@
+[
+    {
+        "id": 1,
+        "owner_id": 1,
+        "title": "Beachfront Villa",
+        "description": "Luxurious villa with ocean view",
+        "address": "123 Coastal Road, Manila",
+        "price": 2500000.00,
+        "ar_model_url": "https://storage.example.com/ar-models/villa1.glb"
+    },
+    {
+        "id": 2,
+        "owner_id": 2,
+        "title": "City Apartment",
+        "description": "Modern apartment in downtown",
+        "address": "456 Urban St, Quezon City",
+        "price": 1500000.00,
+        "ar_model_url": "https://storage.example.com/ar-models/apartment1.glb"
+    }
+]
