@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
 from app.models.contract import Contract
-from app.models.user import User, UserRole  # Added User import
+from app.models.user import User, UserRole
+from app.models.property import Property
 from fastapi import HTTPException
 from app.config.settings import settings
-import openai
 
 class ContractController:
     @staticmethod
@@ -69,23 +69,3 @@ class ContractController:
         db.delete(contract)
         db.commit()
         return {"message": "Contract deleted"}
-
-    @staticmethod
-    async def analyze_contract(db: Session, contract_id: int, current_user: User):
-        if current_user.role not in [UserRole.ADMIN, UserRole.SUB_ADMIN, UserRole.AGENT]:
-            raise HTTPException(status_code=403, detail="Not authorized")
-        contract = db.query(Contract).filter(Contract.id == contract_id).first()
-        if not contract:
-            raise HTTPException(status_code=404, detail="Contract not found")
-        openai.api_key = settings.AI_API_KEY
-        try:
-            response = openai.Completion.create(
-                engine="text-davinci-003",
-                prompt=f"Analyze the following real estate contract and summarize key terms: {contract.content}",
-                max_tokens=200
-            )
-            analysis = response.choices[0].text.strip()
-            return {"contract_id": contract_id, "analysis": analysis}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
-            

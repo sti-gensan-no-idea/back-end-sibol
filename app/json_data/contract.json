@@ -1,0 +1,14 @@
+[
+    {
+        "id": 1,
+        "property_id": 1,
+        "tenant_id": 3,
+        "content": "Lease agreement for Beachfront Villa, 1 year"
+    },
+    {
+        "id": 2,
+        "property_id": 2,
+        "tenant_id": 4,
+        "content": "Lease agreement for City Apartment, 6 months"
+    }
+]

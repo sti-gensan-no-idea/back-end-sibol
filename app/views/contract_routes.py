@@ -49,8 +49,3 @@ async def update_contract(contract_id: int, contract: ContractUpdate, db: Sessio
 async def delete_contract(contract_id: int, db: Session = Depends(get_db),
                          current_user: User = Depends(get_current_user)):
     return ContractController.delete_contract(db, contract_id, current_user)
-
-@router.get("/{contract_id}/analyze", response_model=ContractAnalysisResponse, summary="Analyze contract with AI")
-async def analyze_contract(contract_id: int, db: Session = Depends(get_db),
-                          current_user: User = Depends(get_current_user)):
-    return await ContractController.analyze_contract(db, contract_id, current_user)

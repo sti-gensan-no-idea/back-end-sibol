@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "chatroom_id": 1,
+        "user_id": 3,
+        "content": "Is the villa available for rent?",
+        "reactions": {"👍": [1], "😊": [2]},
+        "created_at": "2025-07-28T15:21:00+00:00"
+    },
+    {
+        "id": 2,
+        "chatroom_id": 1,
+        "user_id": 1,
+        "content": "Yes, it’s available! Contact for details.",
+        "reactions": {"👍": [3]},
+        "created_at": "2025-07-28T15:22:00+00:00"
+    },
+    {
+        "id": 3,
+        "chatroom_id": 2,
+        "user_id": 4,
+        "content": "What’s the monthly rent for the apartment?",
+        "reactions": {},
+        "created_at": "2025-07-28T15:31:00+00:00"
+    }
+]
