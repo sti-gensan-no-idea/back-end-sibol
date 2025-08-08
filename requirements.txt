@@ -1,12 +1,37 @@
-# requirements.txt
-fastapi==0.103.0
-uvicorn==0.23.2
-sqlalchemy==2.0.36
-python-jose==3.3.0
+# Core FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database dependencies
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
-pydantic-settings==2.0.3
-openai==0.28.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# HTTP client for external APIs
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Email services
 fastapi-mail==1.4.1
-psycopg2==2.9.10
-aiohttp==3.10.10
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# Additional utilities
+python-dateutil==2.8.2
+loguru==0.7.2
+
+# Additional production dependencies
+redis==5.0.1
+celery==5.3.4
+slow-api==0.1.9
+prometheus-client==0.19.0

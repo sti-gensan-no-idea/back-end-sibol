@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, JSON
+# app/models/chat.py
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, JSON, Boolean
 from sqlalchemy.orm import relationship
 from app.database.database import Base
 from datetime import datetime
@@ -18,6 +19,7 @@ class Message(Base):
     chatroom_id = Column(Integer, ForeignKey("chatrooms.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(String, nullable=False)
+    is_ai = Column(Boolean, default=False)  # Added to flag AI-generated messages
     reactions = Column(JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     chatroom = relationship("Chatroom", back_populates="messages")

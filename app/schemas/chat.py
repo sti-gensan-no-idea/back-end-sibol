@@ -1,3 +1,4 @@
+# app/schemas/chat.py
 from pydantic import BaseModel
 from typing import Optional, Dict, List
 from datetime import datetime
@@ -24,6 +25,7 @@ class MessageResponse(BaseModel):
     chatroom_id: int
     user_id: int
     content: str
+    is_ai: bool  # Added to reflect AI-generated messages
     reactions: Dict[str, List[int]]
     created_at: datetime
 
