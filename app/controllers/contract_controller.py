@@ -1,72 +1,61 @@
-# app/controllers/chat_controller.py
+# app/controllers/contract_controller.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from app.models.chat import Chatroom, Message
+from app.models.simple_models import Contract, ContractStatus
 from app.models.user import User
 
-class ChatController:
+class ContractController:
     @staticmethod
-    def create_chatroom(db: Session, name: str, user: User):
-        """Create a new chatroom for the user."""
-        chatroom = Chatroom(name=name)
-        db.add(chatroom)
-        db.commit()
-        db.refresh(chatroom)
-        return chatroom
-
-    @staticmethod
-    def get_chatrooms(db: Session, skip: int = 0, limit: int = 100):
-        """Retrieve a list of chatrooms with pagination."""
-        return db.query(Chatroom).offset(skip).limit(limit).all()
-
-    @staticmethod
-    def get_or_create_default_chatroom(db: Session, user_id: int) -> int:
-        """Get or create a default chatroom for AI interactions."""
-        chatroom = db.query(Chatroom).filter(Chatroom.name == "AI Assistant", Chatroom.user_id == user_id).first()
-        if not chatroom:
-            chatroom = Chatroom(name="AI Assistant", user_id=user_id)
-            db.add(chatroom)
-            db.commit()
-            db.refresh(chatroom)
-        return chatroom.id
-
-    @staticmethod
-    def create_message(db: Session, chatroom_id: int, content: str, user: User, is_ai: bool = False):
-        """Create a message in a chatroom, with optional AI flag."""
-        chatroom = db.query(Chatroom).filter(Chatroom.id == chatroom_id).first()
-        if not chatroom:
-            raise HTTPException(status_code=404, detail="Chatroom not found")
-        message = Message(
-            chatroom_id=chatroom_id,
-            user_id=user.id,
+    def create_contract(db: Session, contract_number: str, property_id: int, tenant_id: int, 
+                       title: str, content: str, monthly_rent: float, start_date, end_date, user: User):
+        """Create a new contract."""
+        contract = Contract(
+            contract_number=contract_number,
+            property_id=property_id,
+            tenant_id=tenant_id,
+            title=title,
             content=content,
-            is_ai=is_ai
+            monthly_rent=monthly_rent,
+            start_date=start_date,
+            end_date=end_date
         )
-        db.add(message)
+        db.add(contract)
         db.commit()
-        db.refresh(message)
-        return message
+        db.refresh(contract)
+        return contract
 
     @staticmethod
-    def add_reaction(db: Session, message_id: int, emoji: str, user: User):
-        """Add an emoji reaction to a message."""
-        message = db.query(Message).filter(Message.id == message_id).first()
-        if not message:
-            raise HTTPException(status_code=404, detail="Message not found")
-        reactions = message.reactions or {}
-        if emoji not in reactions:
-            reactions[emoji] = []
-        if user.id not in reactions[emoji]:
-            reactions[emoji].append(user.id)
-        message.reactions = reactions
-        db.commit()
-        db.refresh(message)
-        return message
+    def get_contracts(db: Session, skip: int = 0, limit: int = 100):
+        """Retrieve contracts with pagination."""
+        return db.query(Contract).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_messages(db: Session, chatroom_id: int, skip: int = 0, limit: int = 100):
-        """Retrieve messages in a chatroom with pagination."""
-        chatroom = db.query(Chatroom).filter(Chatroom.id == chatroom_id).first()
-        if not chatroom:
-            raise HTTPException(status_code=404, detail="Chatroom not found")
-        return db.query(Message).filter(Message.chatroom_id == chatroom_id).offset(skip).limit(limit).all()
+    def get_contract(db: Session, contract_id: int):
+        """Get a contract by ID."""
+        contract = db.query(Contract).filter(Contract.id == contract_id).first()
+        if not contract:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        return contract
+
+    @staticmethod
+    def update_contract_status(db: Session, contract_id: int, status: ContractStatus, user: User):
+        """Update contract status."""
+        contract = db.query(Contract).filter(Contract.id == contract_id).first()
+        if not contract:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        
+        contract.status = status
+        db.commit()
+        db.refresh(contract)
+        return contract
+
+    @staticmethod
+    def delete_contract(db: Session, contract_id: int, user: User):
+        """Delete a contract."""
+        contract = db.query(Contract).filter(Contract.id == contract_id).first()
+        if not contract:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        
+        db.delete(contract)
+        db.commit()
+        return {"message": "Contract deleted successfully"}

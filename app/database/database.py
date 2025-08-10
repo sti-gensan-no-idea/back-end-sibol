@@ -135,9 +135,7 @@ def create_database_tables() -> bool:
     """
     try:
         # Import all models to ensure they're registered with Base
-        from app.models import (
-            user, property, contract, payment, chat
-        )
+        import app.models
         
         # Create all tables
         Base.metadata.create_all(bind=engine)

@@ -312,7 +312,7 @@ class ContractSignatureResponse(ContractSignatureBase):
 # Analysis and AI schemas
 class ContractAnalysisRequest(BaseModel):
     contract_id: int
-    analysis_type: str = Field(default="comprehensive", regex="^(basic|comprehensive|risk|legal|financial)$")
+    analysis_type: str = Field(default="comprehensive", pattern="^(basic|comprehensive|risk|legal|financial)$")
 
 class ContractAnalysisResponse(BaseModel):
     contract_id: int
@@ -366,8 +366,8 @@ class ContractSearchRequest(BaseModel):
     renewable_only: Optional[bool] = None
     page: int = Field(default=1, ge=1)
     size: int = Field(default=10, ge=1, le=100)
-    sort_by: Optional[str] = Field(default="created_at", regex="^(created_at|updated_at|start_date|end_date|monthly_rent|title)$")
-    sort_order: Optional[str] = Field(default="desc", regex="^(asc|desc)$")
+    sort_by: Optional[str] = Field(default="created_at", pattern="^(created_at|updated_at|start_date|end_date|monthly_rent|title)$")
+    sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$")
 
 # Bulk operations
 class BulkContractUpdateRequest(BaseModel):

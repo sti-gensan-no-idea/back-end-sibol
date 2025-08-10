@@ -1,6 +1,6 @@
-# Sibol API
+# Atuna API
 
-A back-end of Sibol.
+A back-end of Atuna.
 
 ## Requirements
 

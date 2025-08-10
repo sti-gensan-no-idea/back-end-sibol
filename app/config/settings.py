@@ -12,9 +12,9 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # App Information
-    APP_NAME: str = Field(default="Sibol API", env="APP_NAME")
+    APP_NAME: str = Field(default="Atuna API", env="APP_NAME")
     APP_VERSION: str = Field(default="1.0.0", env="APP_VERSION")
-    APP_DESCRIPTION: str = Field(default="A back-end for Sibol.", env="APP_DESCRIPTION")
+    APP_DESCRIPTION: str = Field(default="A back-end for Atuna.", env="APP_DESCRIPTION")
     APP_KEY: str = Field(default="", env="APP_KEY")
     
     # Environment
@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
     ACCESS_TOKEN_EXPIRY: int = Field(default=30, env="ACCESS_TOKEN_EXPIRY")
     REFRESH_TOKEN_EXPIRY: int = Field(default=7, env="REFRESH_TOKEN_EXPIRY")
+    
+    # Environment and AI Configuration
+    ENV: str = Field(default="local", env="ENV")
+    HUGGINGFACE_TOKEN: str = Field(default="", env="HUGGINGFACE_TOKEN")
     
     # CORS Configuration
     ALLOWED_HOSTS: List[str] = Field(default=["*"], env="ALLOWED_HOSTS")

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models.property import Property
+from app.models.simple_models import Property
 from app.models.user import User, UserRole
 from fastapi import HTTPException
 import json

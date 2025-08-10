@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, BackgroundTasks
-from app.models.payment import Payment, PaymentStatus, Balance
+from app.models.simple_models import Payment, PaymentStatus, Balance
 from app.models.user import User
 from app.services.payment_service import create_payment_intent, get_payment_intent
 from app.services.email_service import send_payment_confirmation

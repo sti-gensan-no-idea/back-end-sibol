@@ -1,7 +1,8 @@
 """
 Enhanced Payment and Transaction models with comprehensive tracking
 """
-from sqlalchemy import Column, Integer, String, Decimal, DateTime, Enum, Boolean, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Enum, Boolean, ForeignKey, Text, JSON
+from sqlalchemy.types import Numeric as Decimal
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base

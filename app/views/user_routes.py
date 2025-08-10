@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.controllers.user_controller import UserController
@@ -6,11 +6,11 @@ from app.models.user import UserRole, User
 from app.services.auth_service import get_current_user
 from app.schemas.user import UserCreate, UserUpdate, UserLogin, UserResponse
 
-router = APIRouter(prefix="/api/v1/users", tags=["users"])
+router = APIRouter(tags=["users"])
 
 @router.post("/register", response_model=UserResponse, summary="Register a new user")
-async def register_user(user: UserCreate, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
-    return await UserController.create_user(db, user.email, user.password, user.role, background_tasks)
+async def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    return await UserController.create_user(db, user.email, user.password, user.role, None)
 
 @router.post("/login", response_model=dict, summary="User login with email and password")
 async def login_user(user: UserLogin, db: Session = Depends(get_db)):

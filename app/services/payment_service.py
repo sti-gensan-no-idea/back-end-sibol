@@ -1,7 +1,7 @@
 import uuid
 import aiohttp
 from sqlalchemy.orm import Session
-from app.models.payment import Payment, Balance
+from app.models.simple_models import Payment, Balance
 from app.config.settings import settings
 from fastapi import BackgroundTasks
 from app.services.email_service import send_payment_confirmation
@@ -12,7 +12,7 @@ async def create_payment_intent(amount: float, description: str, email: str):
         "reference_id": f"payment-{uuid.uuid4()}",
         "channel_code": "QRPH",
         "first_name": "User",
-        "last_name": "Sibol",
+        "last_name": "Atuna",
         "email": email,
         "failure_return_url": "https://example.com/payment/failure",
         "success_return_url": "https://example.com/payment/success",
