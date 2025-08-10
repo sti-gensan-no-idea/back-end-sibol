@@ -8,3 +8,4 @@ venv/
 .env
 gpt_oss_env/
 gpt_oss_env/
+seed_data.sql

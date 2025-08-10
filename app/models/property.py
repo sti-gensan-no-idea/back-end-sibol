@@ -134,6 +134,7 @@ class Balance(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    user = relationship("User", back_populates="balance")
     amount = Column(Decimal(12, 2), default=0.00, nullable=False)
     
     # Balance tracking

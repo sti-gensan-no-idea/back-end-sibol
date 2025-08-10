@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from app.models.user import User, UserRole
+from app.models.property import Balance  # Import Balance from property.py
 from app.services.auth_service import hash_password, create_access_token, verify_password
 from fastapi import HTTPException
 
@@ -30,6 +31,18 @@ class UserController:
         db.add(user)
         db.commit()
         db.refresh(user)
+        
+        # Create associated balance
+        balance = Balance(
+            user_id=user.id,
+            amount=0.00,
+            available_balance=0.00,
+            pending_balance=0.00,
+            escrow_balance=0.00,
+            currency="PHP"
+        )
+        db.add(balance)
+        db.commit()
         
         # Create access token
         access_token = create_access_token(data={"sub": user.email})

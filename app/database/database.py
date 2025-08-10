@@ -32,7 +32,6 @@ engine = create_engine(
         "sslmode": "require",
         "options": "-c timezone=UTC",
         "connect_timeout": 10,
-        "command_timeout": 30,
     },
     echo=settings.DEBUG,
     echo_pool=settings.DEBUG,

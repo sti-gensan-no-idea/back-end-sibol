@@ -1,4 +1,127 @@
-```sql
+-- Drop tables to start fresh (optional; comment out if you want to keep existing data)
+DROP TABLE IF EXISTS property_analytics CASCADE;
+DROP TABLE IF EXISTS agent_performances CASCADE;
+DROP TABLE IF EXISTS upcoming_events CASCADE;
+DROP TABLE IF EXISTS events CASCADE;
+DROP TABLE IF EXISTS property_listings CASCADE;
+DROP TABLE IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS messages CASCADE;
+DROP TABLE IF EXISTS chatrooms CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS contracts CASCADE;
+DROP TABLE IF EXISTS properties CASCADE;
+DROP TABLE IF EXISTS balances CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Create tables
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL,
+    role TEXT CHECK (role IN ('admin', 'agent', 'tenant')) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS balances (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    amount DECIMAL(15, 2) DEFAULT 0.00,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS properties (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    price DECIMAL(15, 2) NOT NULL,
+    location TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS contracts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    content TEXT NOT NULL,
+    status TEXT CHECK (status IN ('pending', 'active', 'expired')) DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    amount DECIMAL(15, 2) NOT NULL,
+    currency TEXT DEFAULT 'USD',
+    status TEXT CHECK (status IN ('pending', 'completed', 'failed')) DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS chatrooms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chatroom_id UUID REFERENCES chatrooms(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    content TEXT NOT NULL,
+    read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+    amount DECIMAL(15, 2) NOT NULL,
+    type TEXT CHECK (type IN ('deposit', 'withdrawal', 'payment')) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS property_listings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+    status TEXT CHECK (status IN ('available', 'pending', 'sold')) DEFAULT 'available',
+    views INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    event_type TEXT CHECK (event_type IN ('viewing', 'offer', 'contract_signed')) NOT NULL,
+    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS upcoming_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+    reminder_sent BOOLEAN DEFAULT false,
+    reminder_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS agent_performances (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    deals_closed INTEGER DEFAULT 0,
+    total_sales DECIMAL(15, 2) DEFAULT 0.00,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS property_analytics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+    total_views INTEGER DEFAULT 0,
+    total_offers INTEGER DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Disable RLS for seeding
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE balances DISABLE ROW LEVEL SECURITY;
@@ -7,706 +130,169 @@ ALTER TABLE contracts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE payments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE chatrooms DISABLE ROW LEVEL SECURITY;
 ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE property_listings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE events DISABLE ROW LEVEL SECURITY;
+ALTER TABLE upcoming_events DISABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_performances DISABLE ROW LEVEL SECURITY;
+ALTER TABLE property_analytics DISABLE ROW LEVEL SECURITY;
 
--- Create new tables (aligned with previous response, adjusted for schema)
-CREATE TABLE IF NOT EXISTS transactions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    property_id INTEGER REFERENCES properties(id),
-    amount DECIMAL(10, 2) NOT NULL,
-    type VARCHAR(50) NOT NULL, -- e.g., 'PURCHASE', 'COMMISSION', 'REFUND'
-    status VARCHAR(20) NOT NULL, -- e.g., 'PENDING', 'COMPLETED', 'FAILED'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS property_listings (
-    id SERIAL PRIMARY KEY,
-    property_id INTEGER REFERENCES properties(id),
-    status VARCHAR(20) NOT NULL, -- e.g., 'ACTIVE', 'PENDING', 'SOLD', 'RENTED'
-    views INTEGER DEFAULT 0,
-    inquiries INTEGER DEFAULT 0,
-    listed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS events (
-    id SERIAL PRIMARY KEY,
-    property_id INTEGER REFERENCES properties(id),
-    user_id INTEGER REFERENCES users(id),
-    event_type VARCHAR(50) NOT NULL, -- e.g., 'TOUR', 'MEETING', 'OPEN_HOUSE'
-    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    status VARCHAR(20) NOT NULL -- e.g., 'SCHEDULED', 'COMPLETED', 'CANCELLED'
-);
-
-CREATE TABLE IF NOT EXISTS upcoming_events (
-    id SERIAL PRIMARY KEY,
-    event_id INTEGER REFERENCES events(id),
-    reminder_sent BOOLEAN DEFAULT FALSE,
-    reminder_at TIMESTAMP WITH TIME ZONE NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS agent_performances (
-    id SERIAL PRIMARY KEY,
-    agent_id INTEGER REFERENCES users(id),
-    deals_closed INTEGER DEFAULT 0,
-    response_time INTERVAL,
-    rating DECIMAL(3, 1), -- e.g., 4.5
-    leads_assigned INTEGER DEFAULT 0,
-    conversion_rate DECIMAL(5, 2), -- e.g., 15.50%
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS property_analytics (
-    id SERIAL PRIMARY KEY,
-    property_id INTEGER REFERENCES properties(id),
-    total_views INTEGER DEFAULT 0,
-    total_inquiries INTEGER DEFAULT 0,
-    conversion_rate DECIMAL(5, 2), -- e.g., 10.25%
-    avg_time_on_market INTERVAL,
-    last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS automation_workflows (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    trigger_type VARCHAR(50) NOT NULL, -- e.g., 'NEW_LEAD', 'INQUIRY', 'PAYMENT'
-    action VARCHAR(100) NOT NULL, -- e.g., 'SEND_EMAIL', 'CREATE_EVENT', 'NOTIFY_AGENT'
-    status VARCHAR(20) NOT NULL, -- e.g., 'ACTIVE', 'INACTIVE'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Clear existing data
-TRUNCATE TABLE messages, chatrooms, payments, balances, contracts, properties, users, transactions, property_listings, events, upcoming_events, agent_performances, property_analytics, automation_workflows RESTART IDENTITY CASCADE;
-
--- Insert Users (50: 10 ADMIN, 5 SUB_ADMIN, 15 AGENT, 20 CLIENT)
+-- Insert data (same as provided previously)
 INSERT INTO users (id, email, hashed_password, role, is_active) VALUES
-(1, 'admin1@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'ADMIN', true),
-(2, 'admin2@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'ADMIN', true),
-(3, 'admin3@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'ADMIN', true),
-(4, 'admin4@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'ADMIN', true),
-(5, 'admin5@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'ADMIN', true),
-(6, 'subadmin1@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'SUB_ADMIN', true),
-(7, 'subadmin2@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'SUB_ADMIN', true),
-(8, 'subadmin3@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'SUB_ADMIN', true),
-(9, 'subadmin4@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'SUB_ADMIN', true),
-(10, 'subadmin5@Atuna.com', '$2b$12$Q7z9X8Y2z3W4x5Y6z7A8B9C0D1E2F3G4H5I6J7K8L9M0N1O2P3Q4', 'SUB_ADMIN', true),
-(11, 'agent1@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(12, 'agent2@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(13, 'agent3@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(14, 'agent4@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(15, 'agent5@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(16, 'agent6@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(17, 'agent7@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(18, 'agent8@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(19, 'agent9@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(20, 'agent10@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(21, 'agent11@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(22, 'agent12@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(23, 'agent13@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(24, 'agent14@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(25, 'agent15@Atuna.com', '$2b$12$R8A9B0C1D2E3F4G5H6I7J8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3', 'AGENT', true),
-(26, 'client1@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(27, 'client2@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(28, 'client3@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(29, 'client4@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(30, 'client5@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(31, 'client6@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(32, 'client7@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(33, 'client8@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(34, 'client9@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(35, 'client10@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(36, 'client11@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(37, 'client12@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(38, 'client13@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(39, 'client14@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(40, 'client15@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(41, 'client16@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(42, 'client17@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(43, 'client18@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(44, 'client19@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true),
-(45, 'client20@Atuna.com', '$2b$12$S9T0U1V2W3X4Y5Z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0O1P2Q3R4', 'CLIENT', true);
+    (gen_random_uuid(), 'user1@example.com', 'hashed_password1', 'admin', true),
+    (gen_random_uuid(), 'agent1@example.com', 'hashed_password2', 'agent', true),
+    (gen_random_uuid(), 'tenant1@example.com', 'hashed_password3', 'tenant', true),
+    (gen_random_uuid(), 'user2@example.com', 'hashed_password4', 'admin', true),
+    (gen_random_uuid(), 'agent2@example.com', 'hashed_password5', 'agent', true),
+    (gen_random_uuid(), 'tenant2@example.com', 'hashed_password6', 'tenant', true),
+    (gen_random_uuid(), 'user3@example.com', 'hashed_password7', 'admin', true),
+    (gen_random_uuid(), 'agent3@example.com', 'hashed_password8', 'agent', true),
+    (gen_random_uuid(), 'tenant3@example.com', 'hashed_password9', 'tenant', true),
+    (gen_random_uuid(), 'user4@example.com', 'hashed_password10', 'admin', true);
 
--- Insert Balances (50: one per user)
 INSERT INTO balances (user_id, amount) VALUES
-(1, 15000.00), (2, 12000.00), (3, 10000.00), (4, 8000.00), (5, 6000.00),
-(6, 5500.00), (7, 5000.00), (8, 4500.00), (9, 4000.00), (10, 3500.00),
-(11, 2000.00), (12, 1800.00), (13, 1500.00), (14, 1200.00), (15, 1000.00),
-(16, 900.00), (17, 800.00), (18, 700.00), (19, 600.00), (20, 500.00),
-(21, 400.00), (22, 300.00), (23, 200.00), (24, 100.00), (25, 50.00),
-(26, 0.00), (27, 0.00), (28, 0.00), (29, 0.00), (30, 0.00),
-(31, 0.00), (32, 0.00), (33, 0.00), (34, 0.00), (35, 0.00),
-(36, 0.00), (37, 0.00), (38, 0.00), (39, 0.00), (40, 0.00),
-(41, 0.00), (42, 0.00), (43, 0.00), (44, 0.00), (45, 0.00);
+    ((SELECT id FROM users WHERE email = 'user1@example.com'), 1000.00),
+    ((SELECT id FROM users WHERE email = 'agent1@example.com'), 500.00),
+    ((SELECT id FROM users WHERE email = 'tenant1@example.com'), 200.00),
+    ((SELECT id FROM users WHERE email = 'user2@example.com'), 1500.00),
+    ((SELECT id FROM users WHERE email = 'agent2@example.com'), 700.00),
+    ((SELECT id FROM users WHERE email = 'tenant2@example.com'), 300.00),
+    ((SELECT id FROM users WHERE email = 'user3@example.com'), 1200.00),
+    ((SELECT id FROM users WHERE email = 'agent3@example.com'), 600.00),
+    ((SELECT id FROM users WHERE email = 'tenant3@example.com'), 400.00),
+    ((SELECT id FROM users WHERE email = 'user4@example.com'), 1800.00);
 
--- Insert Properties (50: owned by ADMIN, SUB_ADMIN, or AGENT)
-INSERT INTO properties (id, owner_id, title, description, price, location, type, status, ar_model_url, thumbnail, image_360, address, total_bed, total_bathroom, area_size, ar_scene_config) VALUES
-(1, 1, 'Villa Sarangani', 'Luxurious beachfront villa', 3200000.00, 'Sarangani', 'VILLA', 'AVAILABLE', 'https://storage.example.com/ar-models/villa1.glb', 'https://storage.example.com/thumbs/villa1.jpg', 'https://storage.example.com/360/villa1.jpg', '123 Sarangani Beach Rd, General Santos City', 4, 3, 250.5, '{"scene": "beachfront"}'),
-(2, 1, 'Villa Dadiangas', 'Spacious villa with pool', 3500000.00, 'Dadiangas', 'VILLA', 'AVAILABLE', 'https://storage.example.com/ar-models/villa2.glb', 'https://storage.example.com/thumbs/villa2.jpg', 'https://storage.example.com/360/villa2.jpg', '124 Dadiangas St, General Santos City', 5, 4, 300.0, '{"scene": "poolside"}'),
-(3, 2, 'Apartment Lagao', 'Modern downtown apartment', 1200000.00, 'Lagao', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt1.glb', 'https://storage.example.com/thumbs/apt1.jpg', 'https://storage.example.com/360/apt1.jpg', '201 Lagao Rd, General Santos City', 2, 1, 80.0, '{"scene": "urban"}'),
-(4, 2, 'Apartment Calumpang', 'Cozy city apartment', 1100000.00, 'Calumpang', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt2.glb', 'https://storage.example.com/thumbs/apt2.jpg', 'https://storage.example.com/360/apt2.jpg', '202 Calumpang St, General Santos City', 1, 1, 60.0, '{"scene": "cozy"}'),
-(5, 3, 'House Bula', 'Family house with garden', 1800000.00, 'Bula', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house1.glb', 'https://storage.example.com/thumbs/house1.jpg', 'https://storage.example.com/360/house1.jpg', '301 Bula Rd, General Santos City', 3, 2, 150.0, '{"scene": "suburban"}'),
-(6, 3, 'House Fatima', 'Modern suburban house', 1900000.00, 'Fatima', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house2.glb', 'https://storage.example.com/thumbs/house2.jpg', 'https://storage.example.com/360/house2.jpg', '302 Fatima St, General Santos City', 3, 2, 160.0, '{"scene": "modern"}'),
-(7, 4, 'Condo Pioneer', 'High-rise condo with view', 2000000.00, 'Pioneer', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo1.glb', 'https://storage.example.com/thumbs/condo1.jpg', 'https://storage.example.com/360/condo1.jpg', '401 Pioneer Ave, General Santos City', 2, 2, 100.0, '{"scene": "cityscape"}'),
-(8, 4, 'Condo City Heights', 'Luxury condo in city center', 2100000.00, 'City Heights', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo2.glb', 'https://storage.example.com/thumbs/condo2.jpg', 'https://storage.example.com/360/condo2.jpg', '402 City Heights Rd, General Santos City', 2, 2, 110.0, '{"scene": "luxury"}'),
-(9, 5, 'Townhouse Dadiangas', 'Modern townhouse', 1600000.00, 'Dadiangas', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse1.glb', 'https://storage.example.com/thumbs/townhouse1.jpg', 'https://storage.example.com/360/townhouse1.jpg', '501 Dadiangas East, General Santos City', 3, 2, 120.0, '{"scene": "urban"}'),
-(10, 5, 'Townhouse Lagao', 'Spacious townhouse', 1700000.00, 'Lagao', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse2.glb', 'https://storage.example.com/thumbs/townhouse2.jpg', 'https://storage.example.com/360/townhouse2.jpg', '502 Lagao St, General Santos City', 3, 2, 130.0, '{"scene": "suburban"}'),
-(11, 6, 'Villa Baluan', 'Beachfront villa with terrace', 3000000.00, 'Baluan', 'VILLA', 'AVAILABLE', 'https://storage.example.com/ar-models/villa3.glb', 'https://storage.example.com/thumbs/villa3.jpg', 'https://storage.example.com/360/villa3.jpg', '103 Baluan Rd, General Santos City', 4, 3, 240.0, '{"scene": "beachfront"}'),
-(12, 6, 'Apartment San Isidro', 'Downtown studio apartment', 1000000.00, 'San Isidro', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt3.glb', 'https://storage.example.com/thumbs/apt3.jpg', 'https://storage.example.com/360/apt3.jpg', '203 San Isidro St, General Santos City', 1, 1, 50.0, '{"scene": "urban"}'),
-(13, 7, 'House Labangal', 'Suburban family house', 1850000.00, 'Labangal', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house3.glb', 'https://storage.example.com/thumbs/house3.jpg', 'https://storage.example.com/360/house3.jpg', '303 Labangal Rd, General Santos City', 3, 2, 155.0, '{"scene": "suburban"}'),
-(14, 7, 'Condo Makar', 'City-view condo', 2050000.00, 'Makar', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo3.glb', 'https://storage.example.com/thumbs/condo3.jpg', 'https://storage.example.com/360/condo3.jpg', '403 Makar Wharf, General Santos City', 2, 2, 105.0, '{"scene": "cityscape"}'),
-(15, 8, 'Townhouse Bula', 'Cozy townhouse', 1650000.00, 'Bula', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse3.glb', 'https://storage.example.com/thumbs/townhouse3.jpg', 'https://storage.example.com/360/townhouse3.jpg', '503 Bula St, General Santos City', 3, 2, 125.0, '{"scene": "suburban"}'),
-(16, 8, 'Villa Tambler', 'Luxury beach villa', 3300000.00, 'Tambler', 'VILLA', 'AVAILABLE', 'https://storage.example.com/ar-models/villa4.glb', 'https://storage.example.com/thumbs/villa4.jpg', 'https://storage.example.com/360/villa4.jpg', '104 Tambler Rd, General Santos City', 5, 4, 260.0, '{"scene": "beachfront"}'),
-(17, 9, 'Apartment Dadiangas', 'Modern city apartment', 1150000.00, 'Dadiangas', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt4.glb', 'https://storage.example.com/thumbs/apt4.jpg', 'https://storage.example.com/360/apt4.jpg', '204 Dadiangas West, General Santos City', 2, 1, 70.0, '{"scene": "urban"}'),
-(18, 9, 'House Calumpang', 'Spacious suburban house', 1950000.00, 'Calumpang', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house4.glb', 'https://storage.example.com/thumbs/house4.jpg', 'https://storage.example.com/360/house4.jpg', '304 Calumpang Rd, General Santos City', 3, 2, 165.0, '{"scene": "suburban"}'),
-(19, 10, 'Condo Lagao', 'High-rise luxury condo', 2150000.00, 'Lagao', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo4.glb', 'https://storage.example.com/thumbs/condo4.jpg', 'https://storage.example.com/360/condo4.jpg', '404 Lagao Rd, General Santos City', 2, 2, 115.0, '{"scene": "luxury"}'),
-(20, 10, 'Townhouse Fatima', 'Modern townhouse with garage', 1750000.00, 'Fatima', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse4.glb', 'https://storage.example.com/thumbs/townhouse4.jpg', 'https://storage.example.com/360/townhouse4.jpg', '504 Fatima St, General Santos City', 3, 2, 135.0, '{"scene": "suburban"}'),
-(21, 11, 'Villa Ligaya', 'Beachfront villa with pool', 3400000.00, 'Ligaya', 'VILLA', 'PENDING', 'https://storage.example.com/ar-models/villa5.glb', 'https://storage.example.com/thumbs/villa5.jpg', 'https://storage.example.com/360/villa5.jpg', '105 Ligaya Rd, General Santos City', 5, 4, 270.0, '{"scene": "beachfront"}'),
-(22, 11, 'Apartment City Heights', 'City-view studio', 1050000.00, 'City Heights', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt5.glb', 'https://storage.example.com/thumbs/apt5.jpg', 'https://storage.example.com/360/apt5.jpg', '205 City Heights Rd, General Santos City', 1, 1, 55.0, '{"scene": "urban"}'),
-(23, 12, 'House San Isidro', 'Family house with yard', 1870000.00, 'San Isidro', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house5.glb', 'https://storage.example.com/thumbs/house5.jpg', 'https://storage.example.com/360/house5.jpg', '305 San Isidro St, General Santos City', 3, 2, 160.0, '{"scene": "suburban"}'),
-(24, 12, 'Condo Bula', 'Modern condo with amenities', 2200000.00, 'Bula', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo5.glb', 'https://storage.example.com/thumbs/condo5.jpg', 'https://storage.example.com/360/condo5.jpg', '405 Bula Rd, General Santos City', 2, 2, 120.0, '{"scene": "luxury"}'),
-(25, 13, 'Townhouse Makar', 'Spacious townhouse', 1680000.00, 'Makar', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse5.glb', 'https://storage.example.com/thumbs/townhouse5.jpg', 'https://storage.example.com/360/townhouse5.jpg', '505 Makar Wharf, General Santos City', 3, 2, 130.0, '{"scene": "suburban"}'),
-(26, 13, 'Villa Labangal', 'Luxury villa with garden', 3500000.00, 'Labangal', 'VILLA', 'SOLD', 'https://storage.example.com/ar-models/villa6.glb', 'https://storage.example.com/thumbs/villa6.jpg', 'https://storage.example.com/360/villa6.jpg', '106 Labangal Rd, General Santos City', 5, 4, 280.0, '{"scene": "beachfront"}'),
-(27, 14, 'Apartment Tambler', 'Cozy downtown apartment', 1080000.00, 'Tambler', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt6.glb', 'https://storage.example.com/thumbs/apt6.jpg', 'https://storage.example.com/360/apt6.jpg', '206 Tambler St, General Santos City', 1, 1, 60.0, '{"scene": "urban"}'),
-(28, 14, 'House Dadiangas', 'Suburban house with garage', 1900000.00, 'Dadiangas', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house6.glb', 'https://storage.example.com/thumbs/house6.jpg', 'https://storage.example.com/360/house6.jpg', '306 Dadiangas East, General Santos City', 3, 2, 165.0, '{"scene": "suburban"}'),
-(29, 15, 'Condo Sarangani', 'High-rise condo with view', 2250000.00, 'Sarangani', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo6.glb', 'https://storage.example.com/thumbs/condo6.jpg', 'https://storage.example.com/360/condo6.jpg', '406 Sarangani Beach Rd, General Santos City', 2, 2, 125.0, '{"scene": "cityscape"}'),
-(30, 15, 'Townhouse Calumpang', 'Modern townhouse', 1700000.00, 'Calumpang', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse6.glb', 'https://storage.example.com/thumbs/townhouse6.jpg', 'https://storage.example.com/360/townhouse6.jpg', '506 Calumpang St, General Santos City', 3, 2, 135.0, '{"scene": "suburban"}'),
-(31, 16, 'Villa Bula', 'Beachfront villa', 3200000.00, 'Bula', 'VILLA', 'AVAILABLE', 'https://storage.example.com/ar-models/villa7.glb', 'https://storage.example.com/thumbs/villa7.jpg', 'https://storage.example.com/360/villa7.jpg', '107 Bula Rd, General Santos City', 4, 3, 250.0, '{"scene": "beachfront"}'),
-(32, 16, 'Apartment Fatima', 'Modern studio apartment', 1100000.00, 'Fatima', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt7.glb', 'https://storage.example.com/thumbs/apt7.jpg', 'https://storage.example.com/360/apt7.jpg', '207 Fatima St, General Santos City', 1, 1, 50.0, '{"scene": "urban"}'),
-(33, 17, 'House Lagao', 'Family house with pool', 1950000.00, 'Lagao', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house7.glb', 'https://storage.example.com/thumbs/house7.jpg', 'https://storage.example.com/360/house7.jpg', '307 Lagao Rd, General Santos City', 3, 2, 170.0, '{"scene": "suburban"}'),
-(34, 17, 'Condo City Heights', 'Luxury condo', 2300000.00, 'City Heights', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo7.glb', 'https://storage.example.com/thumbs/condo7.jpg', 'https://storage.example.com/360/condo7.jpg', '407 City Heights Rd, General Santos City', 2, 2, 130.0, '{"scene": "luxury"}'),
-(35, 18, 'Townhouse San Isidro', 'Cozy townhouse', 1650000.00, 'San Isidro', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse7.glb', 'https://storage.example.com/thumbs/townhouse7.jpg', 'https://storage.example.com/360/townhouse7.jpg', '507 San Isidro St, General Santos City', 3, 2, 125.0, '{"scene": "suburban"}'),
-(36, 18, 'Villa Makar', 'Luxury beach villa', 3600000.00, 'Makar', 'VILLA', 'SOLD', 'https://storage.example.com/ar-models/villa8.glb', 'https://storage.example.com/thumbs/villa8.jpg', 'https://storage.example.com/360/villa8.jpg', '108 Makar Wharf, General Santos City', 5, 4, 290.0, '{"scene": "beachfront"}'),
-(37, 19, 'Apartment Labangal', 'City apartment with view', 1120000.00, 'Labangal', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt8.glb', 'https://storage.example.com/thumbs/apt8.jpg', 'https://storage.example.com/360/apt8.jpg', '208 Labangal Rd, General Santos City', 2, 1, 65.0, '{"scene": "urban"}'),
-(38, 19, 'House Tambler', 'Spacious suburban house', 2000000.00, 'Tambler', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house8.glb', 'https://storage.example.com/thumbs/house8.jpg', 'https://storage.example.com/360/house8.jpg', '308 Tambler St, General Santos City', 3, 2, 175.0, '{"scene": "suburban"}'),
-(39, 20, 'Condo Dadiangas', 'High-rise condo', 2350000.00, 'Dadiangas', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo8.glb', 'https://storage.example.com/thumbs/condo8.jpg', 'https://storage.example.com/360/condo8.jpg', '408 Dadiangas West, General Santos City', 2, 2, 135.0, '{"scene": "cityscape"}'),
-(40, 20, 'Townhouse Bula', 'Modern townhouse with garage', 1750000.00, 'Bula', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse8.glb', 'https://storage.example.com/thumbs/townhouse8.jpg', 'https://storage.example.com/360/townhouse8.jpg', '508 Bula Rd, General Santos City', 3, 2, 135.0, '{"scene": "suburban"}'),
-(41, 21, 'Villa Sarangani', 'Luxury villa with pool', 3700000.00, 'Sarangani', 'VILLA', 'AVAILABLE', 'https://storage.example.com/ar-models/villa9.glb', 'https://storage.example.com/thumbs/villa9.jpg', 'https://storage.example.com/360/villa9.jpg', '109 Sarangani Beach Rd, General Santos City', 5, 4, 300.0, '{"scene": "beachfront"}'),
-(42, 21, 'Apartment Calumpang', 'Cozy studio apartment', 1150000.00, 'Calumpang', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt9.glb', 'https://storage.example.com/thumbs/apt9.jpg', 'https://storage.example.com/360/apt9.jpg', '209 Calumpang St, General Santos City', 1, 1, 60.0, '{"scene": "urban"}'),
-(43, 22, 'House City Heights', 'Family house with garden', 2050000.00, 'City Heights', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house9.glb', 'https://storage.example.com/thumbs/house9.jpg', 'https://storage.example.com/360/house9.jpg', '309 City Heights Rd, General Santos City', 3, 2, 180.0, '{"scene": "suburban"}'),
-(44, 22, 'Condo Lagao', 'Modern condo with amenities', 2400000.00, 'Lagao', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo9.glb', 'https://storage.example.com/thumbs/condo9.jpg', 'https://storage.example.com/360/condo9.jpg', '409 Lagao Rd, General Santos City', 2, 2, 140.0, '{"scene": "luxury"}'),
-(45, 23, 'Townhouse Fatima', 'Spacious townhouse', 1700000.00, 'Fatima', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse9.glb', 'https://storage.example.com/thumbs/townhouse9.jpg', 'https://storage.example.com/360/townhouse9.jpg', '509 Fatima St, General Santos City', 3, 2, 130.0, '{"scene": "suburban"}'),
-(46, 23, 'Villa San Isidro', 'Beachfront villa', 3800000.00, 'San Isidro', 'VILLA', 'SOLD', 'https://storage.example.com/ar-models/villa10.glb', 'https://storage.example.com/thumbs/villa10.jpg', 'https://storage.example.com/360/villa10.jpg', '110 San Isidro St, General Santos City', 5, 4, 310.0, '{"scene": "beachfront"}'),
-(47, 24, 'Apartment Makar', 'Modern city apartment', 1180000.00, 'Makar', 'APARTMENT', 'AVAILABLE', 'https://storage.example.com/ar-models/apt10.glb', 'https://storage.example.com/thumbs/apt10.jpg', 'https://storage.example.com/360/apt10.jpg', '210 Makar Wharf, General Santos City', 2, 1, 70.0, '{"scene": "urban"}'),
-(48, 24, 'House Bula', 'Suburban house with pool', 2100000.00, 'Bula', 'HOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/house10.glb', 'https://storage.example.com/thumbs/house10.jpg', 'https://storage.example.com/360/house10.jpg', '310 Bula Rd, General Santos City', 3, 2, 185.0, '{"scene": "suburban"}'),
-(49, 25, 'Condo Tambler', 'High-rise luxury condo', 2450000.00, 'Tambler', 'CONDO', 'AVAILABLE', 'https://storage.example.com/ar-models/condo10.glb', 'https://storage.example.com/thumbs/condo10.jpg', 'https://storage.example.com/360/condo10.jpg', '410 Tambler St, General Santos City', 2, 2, 145.0, '{"scene": "luxury"}'),
-(50, 25, 'Townhouse Labangal', 'Modern townhouse', 1800000.00, 'Labangal', 'TOWNHOUSE', 'AVAILABLE', 'https://storage.example.com/ar-models/townhouse10.glb', 'https://storage.example.com/thumbs/townhouse10.jpg', 'https://storage.example.com/360/townhouse10.jpg', '510 Labangal Rd, General Santos City', 3, 2, 140.0, '{"scene": "suburban"}');
+INSERT INTO properties (id, owner_id, title, description, price, location) VALUES
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user1@example.com'), 'Apartment 1', 'Cozy apartment', 100000.00, 'Downtown'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user2@example.com'), 'House 1', 'Spacious house', 200000.00, 'Suburbs'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user3@example.com'), 'Condo 1', 'Modern condo', 150000.00, 'City Center'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user4@example.com'), 'Apartment 2', 'Luxury apartment', 120000.00, 'Downtown'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user1@example.com'), 'House 2', 'Family house', 180000.00, 'Suburbs'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user2@example.com'), 'Condo 2', 'New condo', 140000.00, 'City Center'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user3@example.com'), 'Apartment 3', 'Affordable apartment', 90000.00, 'Downtown'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user4@example.com'), 'House 3', 'Large house', 220000.00, 'Suburbs'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user1@example.com'), 'Condo 3', 'Premium condo', 160000.00, 'City Center'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'user2@example.com'), 'Apartment 4', 'Modern apartment', 110000.00, 'Downtown');
 
--- Insert Contracts (50: linking properties to CLIENT users)
 INSERT INTO contracts (id, property_id, tenant_id, content, status) VALUES
-(1, 1, 26, 'Lease agreement for Villa Sarangani, 1 year', 'ACTIVE'),
-(2, 2, 27, 'Lease agreement for Villa Dadiangas, 1 year', 'ACTIVE'),
-(3, 3, 28, 'Lease agreement for Apartment Lagao, 6 months', 'ACTIVE'),
-(4, 4, 29, 'Lease agreement for Apartment Calumpang, 6 months', 'ACTIVE'),
-(5, 5, 30, 'Lease agreement for House Bula, 1 year', 'ACTIVE'),
-(6, 6, 31, 'Lease agreement for House Fatima, 1 year', 'ACTIVE'),
-(7, 7, 32, 'Lease agreement for Condo Pioneer, 1 year', 'ACTIVE'),
-(8, 8, 33, 'Lease agreement for Condo City Heights, 1 year', 'ACTIVE'),
-(9, 9, 34, 'Lease agreement for Townhouse Dadiangas, 6 months', 'ACTIVE'),
-(10, 10, 35, 'Lease agreement for Townhouse Lagao, 6 months', 'ACTIVE'),
-(11, 11, 36, 'Lease agreement for Villa Baluan, 1 year', 'ACTIVE'),
-(12, 12, 37, 'Lease agreement for Apartment San Isidro, 6 months', 'ACTIVE'),
-(13, 13, 38, 'Lease agreement for House Labangal, 1 year', 'ACTIVE'),
-(14, 14, 39, 'Lease agreement for Condo Makar, 1 year', 'ACTIVE'),
-(15, 15, 40, 'Lease agreement for Townhouse Bula, 6 months', 'ACTIVE'),
-(16, 16, 41, 'Lease agreement for Villa Tambler, 1 year', 'ACTIVE'),
-(17, 17, 42, 'Lease agreement for Apartment Dadiangas, 6 months', 'ACTIVE'),
-(18, 18, 43, 'Lease agreement for House Calumpang, 1 year', 'ACTIVE'),
-(19, 19, 44, 'Lease agreement for Condo Lagao, 1 year', 'ACTIVE'),
-(20, 20, 45, 'Lease agreement for Townhouse Fatima, 6 months', 'ACTIVE'),
-(21, 21, 36, 'Purchase agreement for Villa Ligaya, full payment', 'PENDING'),
-(22, 22, 37, 'Lease agreement for Apartment City Heights, 6 months', 'ACTIVE'),
-(23, 23, 38, 'Lease agreement for House San Isidro, 1 year', 'ACTIVE'),
-(24, 24, 39, 'Lease agreement for Condo Bula, 1 year', 'ACTIVE'),
-(25, 25, 40, 'Lease agreement for Townhouse Makar, 6 months', 'ACTIVE'),
-(26, 26, 26, 'Purchase agreement for Villa Labangal, full payment', 'COMPLETED'),
-(27, 27, 27, 'Lease agreement for Apartment Tambler, 6 months', 'ACTIVE'),
-(28, 28, 28, 'Lease agreement for House Dadiangas, 1 year', 'ACTIVE'),
-(29, 29, 29, 'Lease agreement for Condo Sarangani, 1 year', 'ACTIVE'),
-(30, 30, 30, 'Lease agreement for Townhouse Calumpang, 6 months', 'ACTIVE'),
-(31, 31, 31, 'Lease agreement for Villa Bula, 1 year', 'ACTIVE'),
-(32, 32, 32, 'Lease agreement for Apartment Fatima, 6 months', 'ACTIVE'),
-(33, 33, 33, 'Lease agreement for House Lagao, 1 year', 'ACTIVE'),
-(34, 34, 34, 'Lease agreement for Condo City Heights, 1 year', 'ACTIVE'),
-(35, 35, 35, 'Lease agreement for Townhouse San Isidro, 6 months', 'ACTIVE'),
-(36, 36, 36, 'Purchase agreement for Villa Makar, full payment', 'COMPLETED'),
-(37, 37, 37, 'Lease agreement for Apartment Labangal, 6 months', 'ACTIVE'),
-(38, 38, 38, 'Lease agreement for House Tambler, 1 year', 'ACTIVE'),
-(39, 39, 39, 'Lease agreement for Condo Dadiangas, 1 year', 'ACTIVE'),
-(40, 40, 40, 'Lease agreement for Townhouse Bula, 6 months', 'ACTIVE'),
-(41, 41, 41, 'Lease agreement for Villa Sarangani, 1 year', 'ACTIVE'),
-(42, 42, 42, 'Lease agreement for Apartment Calumpang, 6 months', 'ACTIVE'),
-(43, 43, 43, 'Lease agreement for House City Heights, 1 year', 'ACTIVE'),
-(44, 44, 44, 'Lease agreement for Condo Lagao, 1 year', 'ACTIVE'),
-(45, 45, 45, 'Lease agreement for Townhouse Fatima, 6 months', 'ACTIVE'),
-(46, 46, 26, 'Purchase agreement for Villa San Isidro, full payment', 'COMPLETED'),
-(47, 47, 27, 'Lease agreement for Apartment Makar, 6 months', 'ACTIVE'),
-(48, 48, 28, 'Lease agreement for House Bula, 1 year', 'ACTIVE'),
-(49, 49, 29, 'Lease agreement for Condo Tambler, 1 year', 'ACTIVE'),
-(50, 50, 30, 'Lease agreement for Townhouse Labangal, 6 months', 'ACTIVE');
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 1'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'Lease agreement', 'active'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 1'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'Lease agreement', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 1'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'Lease agreement', 'active'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 2'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'Lease agreement', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 2'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'Lease agreement', 'active'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 2'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'Lease agreement', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 3'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'Lease agreement', 'active'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 3'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'Lease agreement', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 3'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'Lease agreement', 'active'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 4'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'Lease agreement', 'pending');
 
--- Insert Payments (50: made by CLIENT users)
-INSERT INTO payments (id, user_id, amount, currency, status, transaction_id, qr_code_url, description, created_at) VALUES
-(1, 26, 60000.00, 'PHP', 'PENDING', 'payfusion-txn-001', 'https://qr.example.com/pay-001', 'Initial payment for Villa Sarangani', '2025-07-28 10:00:00+08'),
-(2, 27, 62000.00, 'PHP', 'PENDING', 'payfusion-txn-002', 'https://qr.example.com/pay-002', 'Initial payment for Villa Dadiangas', '2025-07-28 10:01:00+08'),
-(3, 28, 30000.00, 'PHP', 'PENDING', 'payfusion-txn-003', 'https://qr.example.com/pay-003', 'Deposit for Apartment Lagao', '2025-07-28 10:02:00+08'),
-(4, 29, 28000.00, 'PHP', 'PENDING', 'payfusion-txn-004', 'https://qr.example.com/pay-004', 'Deposit for Apartment Calumpang', '2025-07-28 10:03:00+08'),
-(5, 30, 35000.00, 'PHP', 'PENDING', 'payfusion-txn-005', 'https://qr.example.com/pay-005', 'Initial payment for House Bula', '2025-07-28 10:04:00+08'),
-(6, 31, 36000.00, 'PHP', 'PENDING', 'payfusion-txn-006', 'https://qr.example.com/pay-006', 'Initial payment for House Fatima', '2025-07-28 10:05:00+08'),
-(7, 32, 40000.00, 'PHP', 'PENDING', 'payfusion-txn-007', 'https://qr.example.com/pay-007', 'Initial payment for Condo Pioneer', '2025-07-28 10:06:00+08'),
-(8, 33, 42000.00, 'PHP', 'PENDING', 'payfusion-txn-008', 'https://qr.example.com/pay-008', 'Initial payment for Condo City Heights', '2025-07-28 10:07:00+08'),
-(9, 34, 32000.00, 'PHP', 'PENDING', 'payfusion-txn-009', 'https://qr.example.com/pay-009', 'Deposit for Townhouse Dadiangas', '2025-07-28 10:08:00+08'),
-(10, 35, 34000.00, 'PHP', 'PENDING', 'payfusion-txn-010', 'https://qr.example.com/pay-010', 'Deposit for Townhouse Lagao', '2025-07-28 10:09:00+08'),
-(11, 36, 61000.00, 'PHP', 'PENDING', 'payfusion-txn-011', 'https://qr.example.com/pay-011', 'Initial payment for Villa Baluan', '2025-07-28 10:10:00+08'),
-(12, 37, 29000.00, 'PHP', 'PENDING', 'payfusion-txn-012', 'https://qr.example.com/pay-012', 'Deposit for Apartment San Isidro', '2025-07-28 10:11:00+08'),
-(13, 38, 37000.00, 'PHP', 'PENDING', 'payfusion-txn-013', 'https://qr.example.com/pay-013', 'Initial payment for House Labangal', '2025-07-28 10:12:00+08'),
-(14, 39, 41000.00, 'PHP', 'PENDING', 'payfusion-txn-014', 'https://qr.example.com/pay-014', 'Initial payment for Condo Makar', '2025-07-28 10:13:00+08'),
-(15, 40, 33000.00, 'PHP', 'PENDING', 'payfusion-txn-015', 'https://qr.example.com/pay-015', 'Deposit for Townhouse Bula', '2025-07-28 10:14:00+08'),
-(16, 41, 63000.00, 'PHP', 'PENDING', 'payfusion-txn-016', 'https://qr.example.com/pay-016', 'Initial payment for Villa Tambler', '2025-07-28 10:15:00+08'),
-(17, 42, 31000.00, 'PHP', 'PENDING', 'payfusion-txn-017', 'https://qr.example.com/pay-017', 'Deposit for Apartment Dadiangas', '2025-07-28 10:16:00+08'),
-(18, 43, 38000.00, 'PHP', 'PENDING', 'payfusion-txn-018', 'https://qr.example.com/pay-018', 'Initial payment for House Calumpang', '2025-07-28 10:17:00+08'),
-(19, 44, 43000.00, 'PHP', 'PENDING', 'payfusion-txn-019', 'https://qr.example.com/pay-019', 'Initial payment for Condo Lagao', '2025-07-28 10:18:00+08'),
-(20, 45, 35000.00, 'PHP', 'PENDING', 'payfusion-txn-020', 'https://qr.example.com/pay-020', 'Deposit for Townhouse Fatima', '2025-07-28 10:19:00+08'),
-(21, 36, 3400000.00, 'PHP', 'SUCCESSFUL', 'payfusion-txn-021', 'https://qr.example.com/pay-021', 'Full payment for Villa Ligaya', '2025-07-28 10:20:00+08'),
-(22, 37, 30000.00, 'PHP', 'PENDING', 'payfusion-txn-022', 'https://qr.example.com/pay-022', 'Deposit for Apartment City Heights', '2025-07-28 10:21:00+08'),
-(23, 38, 39000.00, 'PHP', 'PENDING', 'payfusion-txn-023', 'https://qr.example.com/pay-023', 'Initial payment for House San Isidro', '2025-07-28 10:22:00+08'),
-(24, 39, 44000.00, 'PHP', 'PENDING', 'payfusion-txn-024', 'https://qr.example.com/pay-024', 'Initial payment for Condo Bula', '2025-07-28 10:23:00+08'),
-(25, 40, 36000.00, 'PHP', 'PENDING', 'payfusion-txn-025', 'https://qr.example.com/pay-025', 'Deposit for Townhouse Makar', '2025-07-28 10:24:00+08'),
-(26, 26, 3500000.00, 'PHP', 'SUCCESSFUL', 'payfusion-txn-026', 'https://qr.example.com/pay-026', 'Full payment for Villa Labangal', '2025-07-28 10:25:00+08'),
-(27, 27, 31000.00, 'PHP', 'PENDING', 'payfusion-txn-027', 'https://qr.example.com/pay-027', 'Deposit for Apartment Tambler', '2025-07-28 10:26:00+08'),
-(28, 28, 40000.00, 'PHP', 'PENDING', 'payfusion-txn-028', 'https://qr.example.com/pay-028', 'Initial payment for House Dadiangas', '2025-07-28 10:27:00+08'),
-(29, 29, 45000.00, 'PHP', 'PENDING', 'payfusion-txn-029', 'https://qr.example.com/pay-029', 'Initial payment for Condo Sarangani', '2025-07-28 10:28:00+08'),
-(30, 30, 37000.00, 'PHP', 'PENDING', 'payfusion-txn-030', 'https://qr.example.com/pay-030', 'Deposit for Townhouse Calumpang', '2025-07-28 10:29:00+08'),
-(31, 31, 65000.00, 'PHP', 'PENDING', 'payfusion-txn-031', 'https://qr.example.com/pay-031', 'Initial payment for Villa Bula', '2025-07-28 10:30:00+08'),
-(32, 32, 32000.00, 'PHP', 'PENDING', 'payfusion-txn-032', 'https://qr.example.com/pay-032', 'Deposit for Apartment Fatima', '2025-07-28 10:31:00+08'),
-(33, 33, 41000.00, 'PHP', 'PENDING', 'payfusion-txn-033', 'https://qr.example.com/pay-033', 'Initial payment for House Lagao', '2025-07-28 10:32:00+08'),
-(34, 34, 46000.00, 'PHP', 'PENDING', 'payfusion-txn-034', 'https://qr.example.com/pay-034', 'Initial payment for Condo City Heights', '2025-07-28 10:33:00+08'),
-(35, 35, 38000.00, 'PHP', 'PENDING', 'payfusion-txn-035', 'https://qr.example.com/pay-035', 'Deposit for Townhouse San Isidro', '2025-07-28 10:34:00+08'),
-(36, 36, 3600000.00, 'PHP', 'SUCCESSFUL', 'payfusion-txn-036', 'https://qr.example.com/pay-036', 'Full payment for Villa Makar', '2025-07-28 10:35:00+08'),
-(37, 37, 33000.00, 'PHP', 'PENDING', 'payfusion-txn-037', 'https://qr.example.com/pay-037', 'Deposit for Apartment Labangal', '2025-07-28 10:36:00+08'),
-(38, 38, 42000.00, 'PHP', 'PENDING', 'payfusion-txn-038', 'https://qr.example.com/pay-038', 'Initial payment for House Tambler', '2025-07-28 10:37:00+08'),
-(39, 39, 47000.00, 'PHP', 'PENDING', 'payfusion-txn-039', 'https://qr.example.com/pay-039', 'Initial payment for Condo Dadiangas', '2025-07-28 10:38:00+08'),
-(40, 40, 39000.00, 'PHP', 'PENDING', 'payfusion-txn-040', 'https://qr.example.com/pay-040', 'Deposit for Townhouse Bula', '2025-07-28 10:39:00+08'),
-(41, 41, 66000.00, 'PHP', 'PENDING', 'payfusion-txn-041', 'https://qr.example.com/pay-041', 'Initial payment for Villa Sarangani', '2025-07-28 10:40:00+08'),
-(42, 42, 34000.00, 'PHP', 'PENDING', 'payfusion-txn-042', 'https://qr.example.com/pay-042', 'Deposit for Apartment Calumpang', '2025-07-28 10:41:00+08'),
-(43, 43, 43000.00, 'PHP', 'PENDING', 'payfusion-txn-043', 'https://qr.example.com/pay-043', 'Initial payment for House City Heights', '2025-07-28 10:42:00+08'),
-(44, 44, 48000.00, 'PHP', 'PENDING', 'payfusion-txn-044', 'https://qr.example.com/pay-044', 'Initial payment for Condo Lagao', '2025-07-28 10:43:00+08'),
-(45, 45, 40000.00, 'PHP', 'PENDING', 'payfusion-txn-045', 'https://qr.example.com/pay-045', 'Deposit for Townhouse Fatima', '2025-07-28 10:44:00+08'),
-(46, 26, 3800000.00, 'PHP', 'SUCCESSFUL', 'payfusion-txn-046', 'https://qr.example.com/pay-046', 'Full payment for Villa San Isidro', '2025-07-28 10:45:00+08'),
-(47, 27, 35000.00, 'PHP', 'PENDING', 'payfusion-txn-047', 'https://qr.example.com/pay-047', 'Deposit for Apartment Makar', '2025-07-28 10:46:00+08'),
-(48, 28, 44000.00, 'PHP', 'PENDING', 'payfusion-txn-048', 'https://qr.example.com/pay-048', 'Initial payment for House Bula', '2025-07-28 10:47:00+08'),
-(49, 29, 49000.00, 'PHP', 'PENDING', 'payfusion-txn-049', 'https://qr.example.com/pay-049', 'Initial payment for Condo Tambler', '2025-07-28 10:48:00+08'),
-(50, 30, 41000.00, 'PHP', 'PENDING', 'payfusion-txn-050', 'https://qr.example.com/pay-050', 'Deposit for Townhouse Labangal', '2025-07-28 10:49:00+08');
+INSERT INTO payments (id, user_id, amount, currency, status) VALUES
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 1000.00, 'USD', 'completed'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 1500.00, 'USD', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 1200.00, 'USD', 'completed'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 800.00, 'USD', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 2000.00, 'USD', 'completed'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 900.00, 'USD', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 1100.00, 'USD', 'completed'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 1300.00, 'USD', 'pending'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 1400.00, 'USD', 'completed'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 1000.00, 'USD', 'pending');
 
--- Insert Transactions (50: purchases and commissions)
-INSERT INTO transactions (id, user_id, property_id, amount, type, status, created_at) VALUES
-(1, 26, 1, 3200000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:00:00+08'),
-(2, 27, 2, 3500000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:01:00+08'),
-(3, 28, 3, 1200000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:02:00+08'),
-(4, 29, 4, 1100000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:03:00+08'),
-(5, 30, 5, 1800000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:04:00+08'),
-(6, 31, 6, 1900000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:05:00+08'),
-(7, 32, 7, 2000000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:06:00+08'),
-(8, 33, 8, 2100000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:07:00+08'),
-(9, 34, 9, 1600000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:08:00+08'),
-(10, 35, 10, 1700000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:09:00+08'),
-(11, 11, 1, 96000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:10:00+08'),
-(12, 12, 2, 105000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:11:00+08'),
-(13, 13, 3, 36000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:12:00+08'),
-(14, 14, 4, 33000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:13:00+08'),
-(15, 15, 5, 54000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:14:00+08'),
-(16, 16, 6, 57000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:15:00+08'),
-(17, 17, 7, 60000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:16:00+08'),
-(18, 18, 8, 63000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:17:00+08'),
-(19, 19, 9, 48000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:18:00+08'),
-(20, 20, 10, 51000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:19:00+08'),
-(21, 36, 11, 3000000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:20:00+08'),
-(22, 37, 12, 1000000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:21:00+08'),
-(23, 38, 13, 1850000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:22:00+08'),
-(24, 39, 14, 2050000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:23:00+08'),
-(25, 40, 15, 1650000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:24:00+08'),
-(26, 41, 16, 3300000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:25:00+08'),
-(27, 42, 17, 1150000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:26:00+08'),
-(28, 43, 18, 1950000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:27:00+08'),
-(29, 44, 19, 2150000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:28:00+08'),
-(30, 45, 20, 1750000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:29:00+08'),
-(31, 21, 11, 90000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:30:00+08'),
-(32, 22, 12, 30000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:31:00+08'),
-(33, 23, 13, 55500.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:32:00+08'),
-(34, 24, 14, 61500.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:33:00+08'),
-(35, 25, 15, 49500.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:34:00+08'),
-(36, 11, 16, 99000.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:35:00+08'),
-(37, 12, 17, 34500.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:36:00+08'),
-(38, 13, 18, 58500.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:37:00+08'),
-(39, 14, 19, 64500.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:38:00+08'),
-(40, 15, 20, 52500.00, 'COMMISSION', 'COMPLETED', '2025-07-28 11:39:00+08'),
-(41, 36, 21, 3400000.00, 'PURCHASE', 'SUCCESSFUL', '2025-07-28 11:40:00+08'),
-(42, 37, 22, 1050000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:41:00+08'),
-(43, 38, 23, 1870000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:42:00+08'),
-(44, 39, 24, 2200000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:43:00+08'),
-(45, 40, 25, 1680000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:44:00+08'),
-(46, 26, 26, 3500000.00, 'PURCHASE', 'COMPLETED', '2025-07-28 11:45:00+08'),
-(47, 27, 27, 1080000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:46:00+08'),
-(48, 28, 28, 1900000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:47:00+08'),
-(49, 29, 29, 2250000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:48:00+08'),
-(50, 30, 30, 1700000.00, 'PURCHASE', 'PENDING', '2025-07-28 11:49:00+08');
+INSERT INTO transactions (id, user_id, property_id, amount, type) VALUES
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), (SELECT id FROM properties WHERE title = 'Apartment 1'), 1000.00, 'payment'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant2@example.com'), (SELECT id FROM properties WHERE title = 'House 1'), 1500.00, 'deposit'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant3@example.com'), (SELECT id FROM properties WHERE title = 'Condo 1'), 1200.00, 'payment'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), (SELECT id FROM properties WHERE title = 'Apartment 2'), 800.00, 'deposit'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant2@example.com'), (SELECT id FROM properties WHERE title = 'House 2'), 2000.00, 'payment'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant3@example.com'), (SELECT id FROM properties WHERE title = 'Condo 2'), 900.00, 'deposit'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), (SELECT id FROM properties WHERE title = 'Apartment 3'), 1100.00, 'payment'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant2@example.com'), (SELECT id FROM properties WHERE title = 'House 3'), 1300.00, 'deposit'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant3@example.com'), (SELECT id FROM properties WHERE title = 'Condo 3'), 1400.00, 'payment'),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'tenant1@example.com'), (SELECT id FROM properties WHERE title = 'Apartment 4'), 1000.00, 'deposit');
 
--- Insert Property Listings (50: one per property)
-INSERT INTO property_listings (id, property_id, status, views, inquiries, listed_at) VALUES
-(1, 1, 'ACTIVE', 150, 10, '2025-07-01 09:00:00+08'),
-(2, 2, 'ACTIVE', 200, 15, '2025-07-01 09:01:00+08'),
-(3, 3, 'ACTIVE', 120, 8, '2025-07-01 09:02:00+08'),
-(4, 4, 'ACTIVE', 100, 5, '2025-07-01 09:03:00+08'),
-(5, 5, 'ACTIVE', 180, 12, '2025-07-01 09:04:00+08'),
-(6, 6, 'ACTIVE', 190, 14, '2025-07-01 09:05:00+08'),
-(7, 7, 'ACTIVE', 160, 11, '2025-07-01 09:06:00+08'),
-(8, 8, 'ACTIVE', 170, 13, '2025-07-01 09:07:00+08'),
-(9, 9, 'ACTIVE', 140, 9, '2025-07-01 09:08:00+08'),
-(10, 10, 'ACTIVE', 150, 10, '2025-07-01 09:09:00+08'),
-(11, 11, 'PENDING', 210, 16, '2025-07-01 09:10:00+08'),
-(12, 12, 'ACTIVE', 110, 7, '2025-07-01 09:11:00+08'),
-(13, 13, 'ACTIVE', 185, 13, '2025-07-01 09:12:00+08'),
-(14, 14, 'ACTIVE', 200, 14, '2025-07-01 09:13:00+08'),
-(15, 15, 'ACTIVE', 155, 10, '2025-07-01 09:14:00+08'),
-(16, 16, 'ACTIVE', 220, 17, '2025-07-01 09:15:00+08'),
-(17, 17, 'ACTIVE', 115, 8, '2025-07-01 09:16:00+08'),
-(18, 18, 'ACTIVE', 190, 12, '2025-07-01 09:17:00+08'),
-(19, 19, 'ACTIVE', 205, 15, '2025-07-01 09:18:00+08'),
-(20, 20, 'ACTIVE', 160, 11, '2025-07-01 09:19:00+08'),
-(21, 21, 'PENDING', 230, 18, '2025-07-01 09:20:00+08'),
-(22, 22, 'ACTIVE', 120, 9, '2025-07-01 09:21:00+08'),
-(23, 23, 'ACTIVE', 195, 13, '2025-07-01 09:22:00+08'),
-(24, 24, 'ACTIVE', 210, 15, '2025-07-01 09:23:00+08'),
-(25, 25, 'ACTIVE', 165, 10, '2025-07-01 09:24:00+08'),
-(26, 26, 'SOLD', 250, 20, '2025-07-01 09:25:00+08'),
-(27, 27, 'ACTIVE', 125, 8, '2025-07-01 09:26:00+08'),
-(28, 28, 'ACTIVE', 200, 14, '2025-07-01 09:27:00+08'),
-(29, 29, 'ACTIVE', 215, 16, '2025-07-01 09:28:00+08'),
-(30, 30, 'ACTIVE', 170, 11, '2025-07-01 09:29:00+08'),
-(31, 31, 'ACTIVE', 240, 19, '2025-07-01 09:30:00+08'),
-(32, 32, 'ACTIVE', 130, 9, '2025-07-01 09:31:00+08'),
-(33, 33, 'ACTIVE', 205, 14, '2025-07-01 09:32:00+08'),
-(34, 34, 'ACTIVE', 220, 16, '2025-07-01 09:33:00+08'),
-(35, 35, 'ACTIVE', 175, 12, '2025-07-01 09:34:00+08'),
-(36, 36, 'SOLD', 260, 21, '2025-07-01 09:35:00+08'),
-(37, 37, 'ACTIVE', 135, 10, '2025-07-01 09:36:00+08'),
-(38, 38, 'ACTIVE', 210, 15, '2025-07-01 09:37:00+08'),
-(39, 39, 'ACTIVE', 225, 17, '2025-07-01 09:38:00+08'),
-(40, 40, 'ACTIVE', 180, 12, '2025-07-01 09:39:00+08'),
-(41, 41, 'ACTIVE', 270, 22, '2025-07-01 09:40:00+08'),
-(42, 42, 'ACTIVE', 140, 10, '2025-07-01 09:41:00+08'),
-(43, 43, 'ACTIVE', 215, 15, '2025-07-01 09:42:00+08'),
-(44, 44, 'ACTIVE', 230, 17, '2025-07-01 09:43:00+08'),
-(45, 45, 'ACTIVE', 185, 13, '2025-07-01 09:44:00+08'),
-(46, 46, 'SOLD', 280, 23, '2025-07-01 09:45:00+08'),
-(47, 47, 'ACTIVE', 145, 11, '2025-07-01 09:46:00+08'),
-(48, 48, 'ACTIVE', 220, 16, '2025-07-01 09:47:00+08'),
-(49, 49, 'ACTIVE', 235, 18, '2025-07-01 09:48:00+08'),
-(50, 50, 'ACTIVE', 190, 14, '2025-07-01 09:49:00+08');
+INSERT INTO property_listings (id, property_id, status, views) VALUES
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 1'), 'available', 100),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 1'), 'pending', 150),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 1'), 'sold', 120),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 2'), 'available', 80),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 2'), 'pending', 200),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 2'), 'sold', 90),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 3'), 'available', 110),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 3'), 'pending', 130),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 3'), 'sold', 140),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 4'), 'available', 100);
 
--- Insert Chatrooms (50: one per property)
 INSERT INTO chatrooms (id, name, created_at) VALUES
-(1, 'Villa Sarangani Chat', '2025-07-28 12:00:00+08'),
-(2, 'Villa Dadiangas Chat', '2025-07-28 12:01:00+08'),
-(3, 'Apartment Lagao Chat', '2025-07-28 12:02:00+08'),
-(4, 'Apartment Calumpang Chat', '2025-07-28 12:03:00+08'),
-(5, 'House Bula Chat', '2025-07-28 12:04:00+08'),
-(6, 'House Fatima Chat', '2025-07-28 12:05:00+08'),
-(7, 'Condo Pioneer Chat', '2025-07-28 12:06:00+08'),
-(8, 'Condo City Heights Chat', '2025-07-28 12:07:00+08'),
-(9, 'Townhouse Dadiangas Chat', '2025-07-28 12:08:00+08'),
-(10, 'Townhouse Lagao Chat', '2025-07-28 12:09:00+08'),
-(11, 'Villa Baluan Chat', '2025-07-28 12:10:00+08'),
-(12, 'Apartment San Isidro Chat', '2025-07-28 12:11:00+08'),
-(13, 'House Labangal Chat', '2025-07-28 12:12:00+08'),
-(14, 'Condo Makar Chat', '2025-07-28 12:13:00+08'),
-(15, 'Townhouse Bula Chat', '2025-07-28 12:14:00+08'),
-(16, 'Villa Tambler Chat', '2025-07-28 12:15:00+08'),
-(17, 'Apartment Dadiangas Chat', '2025-07-28 12:16:00+08'),
-(18, 'House Calumpang Chat', '2025-07-28 12:17:00+08'),
-(19, 'Condo Lagao Chat', '2025-07-28 12:18:00+08'),
-(20, 'Townhouse Fatima Chat', '2025-07-28 12:19:00+08'),
-(21, 'Villa Ligaya Chat', '2025-07-28 12:20:00+08'),
-(22, 'Apartment City Heights Chat', '2025-07-28 12:21:00+08'),
-(23, 'House San Isidro Chat', '2025-07-28 12:22:00+08'),
-(24, 'Condo Bula Chat', '2025-07-28 12:23:00+08'),
-(25, 'Townhouse Makar Chat', '2025-07-28 12:24:00+08'),
-(26, 'Villa Labangal Chat', '2025-07-28 12:25:00+08'),
-(27, 'Apartment Tambler Chat', '2025-07-28 12:26:00+08'),
-(28, 'House Dadiangas Chat', '2025-07-28 12:27:00+08'),
-(29, 'Condo Sarangani Chat', '2025-07-28 12:28:00+08'),
-(30, 'Townhouse Calumpang Chat', '2025-07-28 12:29:00+08'),
-(31, 'Villa Bula Chat', '2025-07-28 12:30:00+08'),
-(32, 'Apartment Fatima Chat', '2025-07-28 12:31:00+08'),
-(33, 'House Lagao Chat', '2025-07-28 12:32:00+08'),
-(34, 'Condo City Heights Chat', '2025-07-28 12:33:00+08'),
-(35, 'Townhouse San Isidro Chat', '2025-07-28 12:34:00+08'),
-(36, 'Villa Makar Chat', '2025-07-28 12:35:00+08'),
-(37, 'Apartment Labangal Chat', '2025-07-28 12:36:00+08'),
-(38, 'House Tambler Chat', '2025-07-28 12:37:00+08'),
-(39, 'Condo Dadiangas Chat', '2025-07-28 12:38:00+08'),
-(40, 'Townhouse Bula Chat', '2025-07-28 12:39:00+08'),
-(41, 'Villa Sarangani Chat 2', '2025-07-28 12:40:00+08'),
-(42, 'Apartment Calumpang Chat 2', '2025-07-28 12:41:00+08'),
-(43, 'House City Heights Chat', '2025-07-28 12:42:00+08'),
-(44, 'Condo Lagao Chat 2', '2025-07-28 12:43:00+08'),
-(45, 'Townhouse Fatima Chat 2', '2025-07-28 12:44:00+08'),
-(46, 'Villa San Isidro Chat', '2025-07-28 12:45:00+08'),
-(47, 'Apartment Makar Chat', '2025-07-28 12:46:00+08'),
-(48, 'House Bula Chat 2', '2025-07-28 12:47:00+08'),
-(49, 'Condo Tambler Chat', '2025-07-28 12:48:00+08'),
-(50, 'Townhouse Labangal Chat', '2025-07-28 12:49:00+08');
+    (gen_random_uuid(), 'Apartment 1 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'House 1 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'Condo 1 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'Apartment 2 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'House 2 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'Condo 2 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'Apartment 3 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'House 3 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'Condo 3 Discussion', CURRENT_TIMESTAMP),
+    (gen_random_uuid(), 'Apartment 4 Discussion', CURRENT_TIMESTAMP);
 
--- Insert Messages (50: client inquiries and responses)
-INSERT INTO messages (id, chatroom_id, user_id, content, reactions, created_at) VALUES
-(1, 1, 26, 'Is Villa Sarangani available for rent?', '{"👍": [1], "😊": [11]}', '2025-07-28 13:00:00+08'),
-(2, 1, 1, 'Yes, Villa Sarangani is available! Contact for details.', '{"👍": [26]}', '2025-07-28 13:01:00+08'),
-(3, 2, 27, 'What’s the monthly rent for Villa Dadiangas?', '{}', '2025-07-28 13:02:00+08'),
-(4, 3, 28, 'Can I view Apartment Lagao?', '{"😊": [13]}', '2025-07-28 13:03:00+08'),
-(5, 4, 29, 'Is Apartment Calumpang pet-friendly?', '{}', '2025-07-28 13:04:00+08'),
-(6, 5, 30, 'Does House Bula have a garage?', '{"👍": [3]}', '2025-07-28 13:05:00+08'),
-(7, 6, 31, 'What’s the lease term for House Fatima?', '{}', '2025-07-28 13:06:00+08'),
-(8, 7, 32, 'Is Condo Pioneer furnished?', '{"😊": [4]}', '2025-07-28 13:07:00+08'),
-(9, 8, 33, 'Can I schedule a tour for Condo City Heights?', '{}', '2025-07-28 13:08:00+08'),
-(10, 9, 34, 'Is Townhouse Dadiangas near schools?', '{"👍": [5]}', '2025-07-28 13:09:00+08'),
-(11, 10, 35, 'What are the amenities in Townhouse Lagao?', '{}', '2025-07-28 13:10:00+08'),
-(12, 11, 36, 'Is Villa Baluan available for purchase?', '{"😊": [6]}', '2025-07-28 13:11:00+08'),
-(13, 12, 37, 'Can I see Apartment San Isidro this week?', '{}', '2025-07-28 13:12:00+08'),
-(14, 13, 38, 'Does House Labangal have a pool?', '{"👍": [7]}', '2025-07-28 13:13:00+08'),
-(15, 14, 39, 'What’s the view like from Condo Makar?', '{}', '2025-07-28 13:14:00+08'),
-(16, 15, 40, 'Is Townhouse Bula near public transport?', '{"😊": [8]}', '2025-07-28 13:15:00+08'),
-(17, 16, 41, 'Can I book a tour for Villa Tambler?', '{}', '2025-07-28 13:16:00+08'),
-(18, 17, 42, 'Is Apartment Dadiangas furnished?', '{"👍": [9]}', '2025-07-28 13:17:00+08'),
-(19, 18, 43, 'What’s the lease term for House Calumpang?', '{}', '2025-07-28 13:18:00+08'),
-(20, 19, 44, 'Does Condo Lagao have parking?', '{"😊": [10]}', '2025-07-28 13:19:00+08'),
-(21, 20, 45, 'Is Townhouse Fatima pet-friendly?', '{}', '2025-07-28 13:20:00+08'),
-(22, 21, 36, 'What’s the price for Villa Ligaya?', '{"👍": [11]}', '2025-07-28 13:21:00+08'),
-(23, 22, 37, 'Can I view Apartment City Heights?', '{}', '2025-07-28 13:22:00+08'),
-(24, 23, 38, 'Does House San Isidro have a garden?', '{"😊": [12]}', '2025-07-28 13:23:00+08'),
-(25, 24, 39, 'Is Condo Bula available for rent?', '{}', '2025-07-28 13:24:00+08'),
-(26, 25, 40, 'What amenities does Townhouse Makar offer?', '{"👍": [13]}', '2025-07-28 13:25:00+08'),
-(27, 26, 26, 'Is Villa Labangal still available?', '{}', '2025-07-28 13:26:00+08'),
-(28, 27, 27, 'Can I see Apartment Tambler?', '{"😊": [14]}', '2025-07-28 13:27:00+08'),
-(29, 28, 28, 'What’s the lease term for House Dadiangas?', '{}', '2025-07-28 13:28:00+08'),
-(30, 29, 29, 'Does Condo Sarangani have a balcony?', '{"👍": [15]}', '2025-07-28 13:29:00+08'),
-(31, 30, 30, 'Is Townhouse Calumpang near schools?', '{}', '2025-07-28 13:30:00+08'),
-(32, 31, 31, 'Can I book a tour for Villa Bula?', '{"😊": [16]}', '2025-07-28 13:31:00+08'),
-(33, 32, 32, 'Is Apartment Fatima furnished?', '{}', '2025-07-28 13:32:00+08'),
-(34, 33, 33, 'What’s the price for House Lagao?', '{"👍": [17]}', '2025-07-28 13:33:00+08'),
-(35, 34, 34, 'Does Condo City Heights have parking?', '{}', '2025-07-28 13:34:00+08'),
-(36, 35, 35, 'Is Townhouse San Isidro pet-friendly?', '{"😊": [18]}', '2025-07-28 13:35:00+08'),
-(37, 36, 36, 'What’s the purchase process for Villa Makar?', '{}', '2025-07-28 13:36:00+08'),
-(38, 37, 37, 'Can I view Apartment Labangal?', '{"👍": [19]}', '2025-07-28 13:37:00+08'),
-(39, 38, 38, 'Does House Tambler have a pool?', '{}', '2025-07-28 13:38:00+08'),
-(40, 39, 39, 'Is Condo Dadiangas available for rent?', '{"😊": [20]}', '2025-07-28 13:39:00+08'),
-(41, 40, 40, 'What amenities does Townhouse Bula offer?', '{}', '2025-07-28 13:40:00+08'),
-(42, 41, 41, 'Is Villa Sarangani available for purchase?', '{"👍": [21]}', '2025-07-28 13:41:00+08'),
-(43, 42, 42, 'Can I see Apartment Calumpang?', '{}', '2025-07-28 13:42:00+08'),
-(44, 43, 43, 'What’s the lease term for House City Heights?', '{"😊": [22]}', '2025-07-28 13:43:00+08'),
-(45, 44, 44, 'Does Condo Lagao have a balcony?', '{}', '2025-07-28 13:44:00+08'),
-(46, 45, 45, 'Is Townhouse Fatima near public transport?', '{"👍": [23]}', '2025-07-28 13:45:00+08'),
-(47, 46, 36, 'What’s the price for Villa San Isidro?', '{}', '2025-07-28 13:46:00+08'),
-(48, 47, 27, 'Can I view Apartment Makar?', '{"😊": [24]}', '2025-07-28 13:47:00+08'),
-(49, 48, 28, 'Does House Bula have a garden?', '{}', '2025-07-28 13:48:00+08'),
-(50, 49, 29, 'Is Condo Tambler available for rent?', '{"👍": [25]}', '2025-07-28 13:49:00+08');
+INSERT INTO messages (id, chatroom_id, user_id, content, read) VALUES
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'Apartment 1 Discussion'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'Interested in viewing', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'House 1 Discussion'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'When is it available?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'Condo 1 Discussion'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'What are the terms?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'Apartment 2 Discussion'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'Can I schedule a visit?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'House 2 Discussion'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'Is it pet-friendly?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'Condo 2 Discussion'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'What’s the price?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'Apartment 3 Discussion'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'Any parking available?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'House 3 Discussion'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'Can I see photos?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'Condo 3 Discussion'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'Is it furnished?', false),
+    (gen_random_uuid(), (SELECT id FROM chatrooms WHERE name = 'Apartment 4 Discussion'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'What’s the lease term?', false);
 
--- Insert Events (50: scheduled tours, meetings, open houses)
-INSERT INTO events (id, property_id, user_id, event_type, scheduled_at, status) VALUES
-(1, 1, 26, 'TOUR', '2025-08-05 10:00:00+08', 'SCHEDULED'),
-(2, 2, 27, 'TOUR', '2025-08-05 11:00:00+08', 'SCHEDULED'),
-(3, 3, 28, 'TOUR', '2025-08-05 12:00:00+08', 'SCHEDULED'),
-(4, 4, 29, 'TOUR', '2025-08-05 13:00:00+08', 'SCHEDULED'),
-(5, 5, 30, 'TOUR', '2025-08-05 14:00:00+08', 'SCHEDULED'),
-(6, 6, 31, 'TOUR', '2025-08-05 15:00:00+08', 'SCHEDULED'),
-(7, 7, 32, 'TOUR', '2025-08-05 16:00:00+08', 'SCHEDULED'),
-(8, 8, 33, 'TOUR', '2025-08-05 17:00:00+08', 'SCHEDULED'),
-(9, 9, 34, 'TOUR', '2025-08-06 10:00:00+08', 'SCHEDULED'),
-(10, 10, 35, 'TOUR', '2025-08-06 11:00:00+08', 'SCHEDULED'),
-(11, 11, 36, 'OPEN_HOUSE', '2025-08-06 12:00:00+08', 'SCHEDULED'),
-(12, 12, 37, 'TOUR', '2025-08-06 13:00:00+08', 'SCHEDULED'),
-(13, 13, 38, 'TOUR', '2025-08-06 14:00:00+08', 'SCHEDULED'),
-(14, 14, 39, 'TOUR', '2025-08-06 15:00:00+08', 'SCHEDULED'),
-(15, 15, 40, 'TOUR', '2025-08-06 16:00:00+08', 'SCHEDULED'),
-(16, 16, 41, 'OPEN_HOUSE', '2025-08-06 17:00:00+08', 'SCHEDULED'),
-(17, 17, 42, 'TOUR', '2025-08-07 10:00:00+08', 'SCHEDULED'),
-(18, 18, 43, 'TOUR', '2025-08-07 11:00:00+08', 'SCHEDULED'),
-(19, 19, 44, 'TOUR', '2025-08-07 12:00:00+08', 'SCHEDULED'),
-(20, 20, 45, 'TOUR', '2025-08-07 13:00:00+08', 'SCHEDULED'),
-(21, 21, 36, 'OPEN_HOUSE', '2025-08-07 14:00:00+08', 'SCHEDULED'),
-(22, 22, 37, 'TOUR', '2025-08-07 15:00:00+08', 'SCHEDULED'),
-(23, 23, 38, 'TOUR', '2025-08-07 16:00:00+08', 'SCHEDULED'),
-(24, 24, 39, 'TOUR', '2025-08-07 17:00:00+08', 'SCHEDULED'),
-(25, 25, 40, 'TOUR', '2025-08-08 10:00:00+08', 'SCHEDULED'),
-(26, 26, 26, 'MEETING', '2025-08-08 11:00:00+08', 'SCHEDULED'),
-(27, 27, 27, 'TOUR', '2025-08-08 12:00:00+08', 'SCHEDULED'),
-(28, 28, 28, 'TOUR', '2025-08-08 13:00:00+08', 'SCHEDULED'),
-(29, 29, 29, 'TOUR', '2025-08-08 14:00:00+08', 'SCHEDULED'),
-(30, 30, 30, 'TOUR', '2025-08-08 15:00:00+08', 'SCHEDULED'),
-(31, 31, 31, 'OPEN_HOUSE', '2025-08-08 16:00:00+08', 'SCHEDULED'),
-(32, 32, 32, 'TOUR', '2025-08-08 17:00:00+08', 'SCHEDULED'),
-(33, 33, 33, 'TOUR', '2025-08-09 10:00:00+08', 'SCHEDULED'),
-(34, 34, 34, 'TOUR', '2025-08-09 11:00:00+08', 'SCHEDULED'),
-(35, 35, 35, 'TOUR', '2025-08-09 12:00:00+08', 'SCHEDULED'),
-(36, 36, 36, 'MEETING', '2025-08-09 13:00:00+08', 'SCHEDULED'),
-(37, 37, 37, 'TOUR', '2025-08-09 14:00:00+08', 'SCHEDULED'),
-(38, 38, 38, 'TOUR', '2025-08-09 15:00:00+08', 'SCHEDULED'),
-(39, 39, 39, 'TOUR', '2025-08-09 16:00:00+08', 'SCHEDULED'),
-(40, 40, 40, 'TOUR', '2025-08-09 17:00:00+08', 'SCHEDULED'),
-(41, 41, 41, 'OPEN_HOUSE', '2025-08-10 10:00:00+08', 'SCHEDULED'),
-(42, 42, 42, 'TOUR', '2025-08-10 11:00:00+08', 'SCHEDULED'),
-(43, 43, 43, 'TOUR', '2025-08-10 12:00:00+08', 'SCHEDULED'),
-(44, 44, 44, 'TOUR', '2025-08-10 13:00:00+08', 'SCHEDULED'),
-(45, 45, 45, 'TOUR', '2025-08-10 14:00:00+08', 'SCHEDULED'),
-(46, 46, 36, 'MEETING', '2025-08-10 15:00:00+08', 'SCHEDULED'),
-(47, 47, 27, 'TOUR', '2025-08-10 16:00:00+08', 'SCHEDULED'),
-(48, 48, 28, 'TOUR', '2025-08-10 17:00:00+08', 'SCHEDULED'),
-(49, 49, 29, 'TOUR', '2025-08-11 10:00:00+08', 'SCHEDULED'),
-(50, 50, 30, 'TOUR', '2025-08-11 11:00:00+08', 'SCHEDULED');
+INSERT INTO events (id, property_id, user_id, event_type, scheduled_at) VALUES
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 1'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'viewing', CURRENT_TIMESTAMP + INTERVAL '1 day'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 1'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'offer', CURRENT_TIMESTAMP + INTERVAL '2 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 1'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'contract_signed', CURRENT_TIMESTAMP + INTERVAL '3 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 2'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'viewing', CURRENT_TIMESTAMP + INTERVAL '4 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 2'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'offer', CURRENT_TIMESTAMP + INTERVAL '5 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 2'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'contract_signed', CURRENT_TIMESTAMP + INTERVAL '6 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 3'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'viewing', CURRENT_TIMESTAMP + INTERVAL '7 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 3'), (SELECT id FROM users WHERE email = 'tenant2@example.com'), 'offer', CURRENT_TIMESTAMP + INTERVAL '8 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 3'), (SELECT id FROM users WHERE email = 'tenant3@example.com'), 'contract_signed', CURRENT_TIMESTAMP + INTERVAL '9 days'),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 4'), (SELECT id FROM users WHERE email = 'tenant1@example.com'), 'viewing', CURRENT_TIMESTAMP + INTERVAL '10 days');
 
--- Insert Upcoming Events (50: reminders for events)
 INSERT INTO upcoming_events (id, event_id, reminder_sent, reminder_at) VALUES
-(1, 1, FALSE, '2025-08-04 10:00:00+08'),
-(2, 2, FALSE, '2025-08-04 11:00:00+08'),
-(3, 3, FALSE, '2025-08-04 12:00:00+08'),
-(4, 4, FALSE, '2025-08-04 13:00:00+08'),
-(5, 5, FALSE, '2025-08-04 14:00:00+08'),
-(6, 6, FALSE, '2025-08-04 15:00:00+08'),
-(7, 7, FALSE, '2025-08-04 16:00:00+08'),
-(8, 8, FALSE, '2025-08-04 17:00:00+08'),
-(9, 9, FALSE, '2025-08-05 10:00:00+08'),
-(10, 10, FALSE, '2025-08-05 11:00:00+08'),
-(11, 11, FALSE, '2025-08-05 12:00:00+08'),
-(12, 12, FALSE, '2025-08-05 13:00:00+08'),
-(13, 13, FALSE, '2025-08-05 14:00:00+08'),
-(14, 14, FALSE, '2025-08-05 15:00:00+08'),
-(15, 15, FALSE, '2025-08-05 16:00:00+08'),
-(16, 16, FALSE, '2025-08-05 17:00:00+08'),
-(17, 17, FALSE, '2025-08-06 10:00:00+08'),
-(18, 18, FALSE, '2025-08-06 11:00:00+08'),
-(19, 19, FALSE, '2025-08-06 12:00:00+08'),
-(20, 20, FALSE, '2025-08-06 13:00:00+08'),
-(21, 21, FALSE, '2025-08-06 14:00:00+08'),
-(22, 22, FALSE, '2025-08-06 15:00:00+08'),
-(23, 23, FALSE, '2025-08-06 16:00:00+08'),
-(24, 24, FALSE, '2025-08-06 17:00:00+08'),
-(25, 25, FALSE, '2025-08-07 10:00:00+08'),
-(26, 26, FALSE, '2025-08-07 11:00:00+08'),
-(27, 27, FALSE, '2025-08-07 12:00:00+08'),
-(28, 28, FALSE, '2025-08-07 13:00:00+08'),
-(29, 29, FALSE, '2025-08-07 14:00:00+08'),
-(30, 30, FALSE, '2025-08-07 15:00:00+08'),
-(31, 31, FALSE, '2025-08-07 16:00:00+08'),
-(32, 32, FALSE, '2025-08-07 17:00:00+08'),
-(33, 33, FALSE, '2025-08-08 10:00:00+08'),
-(34, 34, FALSE, '2025-08-08 11:00:00+08'),
-(35, 35, FALSE, '2025-08-08 12:00:00+08'),
-(36, 36, FALSE, '2025-08-08 13:00:00+08'),
-(37, 37, FALSE, '2025-08-08 14:00:00+08'),
-(38, 38, FALSE, '2025-08-08 15:00:00+08'),
-(39, 39, FALSE, '2025-08-08 16:00:00+08'),
-(40, 40, FALSE, '2025-08-08 17:00:00+08'),
-(41, 41, FALSE, '2025-08-09 10:00:00+08'),
-(42, 42, FALSE, '2025-08-09 11:00:00+08'),
-(43, 43, FALSE, '2025-08-09 12:00:00+08'),
-(44, 44, FALSE, '2025-08-09 13:00:00+08'),
-(45, 45, FALSE, '2025-08-09 14:00:00+08'),
-(46, 46, FALSE, '2025-08-09 15:00:00+08'),
-(47, 47, FALSE, '2025-08-09 16:00:00+08'),
-(48, 48, FALSE, '2025-08-09 17:00:00+08'),
-(49, 49, FALSE, '2025-08-10 10:00:00+08'),
-(50, 50, FALSE, '2025-08-10 11:00:00+08');
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'viewing' LIMIT 1), false, CURRENT_TIMESTAMP + INTERVAL '12 hours'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'offer' LIMIT 1), false, CURRENT_TIMESTAMP + INTERVAL '1 day'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'contract_signed' LIMIT 1), false, CURRENT_TIMESTAMP + INTERVAL '2 days'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'viewing' LIMIT 1 OFFSET 1), false, CURRENT_TIMESTAMP + INTERVAL '3 days'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'offer' LIMIT 1 OFFSET 1), false, CURRENT_TIMESTAMP + INTERVAL '4 days'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'contract_signed' LIMIT 1 OFFSET 1), false, CURRENT_TIMESTAMP + INTERVAL '5 days'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'viewing' LIMIT 1 OFFSET 2), false, CURRENT_TIMESTAMP + INTERVAL '6 days'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'offer' LIMIT 1 OFFSET 2), false, CURRENT_TIMESTAMP + INTERVAL '7 days'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'contract_signed' LIMIT 1 OFFSET 2), false, CURRENT_TIMESTAMP + INTERVAL '8 days'),
+    (gen_random_uuid(), (SELECT id FROM events WHERE event_type = 'viewing' LIMIT 1 OFFSET 3), false, CURRENT_TIMESTAMP + INTERVAL '9 days');
 
--- Insert Agent Performances (15: one per AGENT)
-INSERT INTO agent_performances (id, agent_id, deals_closed, response_time, rating, leads_assigned, conversion_rate, updated_at) VALUES
-(1, 11, 5, '01:30:00', 4.8, 20, 25.00, '2025-08-04 14:00:00+08'),
-(2, 12, 4, '02:00:00', 4.5, 18, 22.22, '2025-08-04 14:01:00+08'),
-(3, 13, 6, '01:15:00', 4.9, 22, 27.27, '2025-08-04 14:02:00+08'),
-(4, 14, 3, '02:30:00', 4.2, 15, 20.00, '2025-08-04 14:03:00+08'),
-(5, 15, 7, '01:00:00', 5.0, 25, 28.00, '2025-08-04 14:04:00+08'),
-(6, 16, 2, '03:00:00', 4.0, 12, 16.67, '2025-08-04 14:05:00+08'),
-(7, 17, 4, '01:45:00', 4.6, 17, 23.53, '2025-08-04 14:06:00+08'),
-(8, 18, 5, '01:20:00', 4.7, 19, 26.32, '2025-08-04 14:07:00+08'),
-(9, 19, 3, '02:15:00', 4.3, 14, 21.43, '2025-08-04 14:08:00+08'),
-(10, 20, 6, '01:10:00', 4.8, 21, 28.57, '2025-08-04 14:09:00+08'),
-(11, 21, 4, '01:50:00', 4.4, 16, 25.00, '2025-08-04 14:10:00+08'),
-(12, 22, 5, '01:25:00', 4.6, 18, 27.78, '2025-08-04 14:11:00+08'),
-(13, 23, 3, '02:20:00', 4.1, 13, 23.08, '2025-08-04 14:12:00+08'),
-(14, 24, 6, '01:05:00', 4.9, 20, 30.00, '2025-08-04 14:13:00+08'),
-(15, 25, 4, '01:40:00', 4.5, 17, 23.53, '2025-08-04 14:14:00+08');
+INSERT INTO agent_performances (id, agent_id, deals_closed, total_sales) VALUES
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent1@example.com'), 5, 500000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent2@example.com'), 3, 300000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent3@example.com'), 7, 700000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent1@example.com'), 2, 200000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent2@example.com'), 4, 400000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent3@example.com'), 6, 600000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent1@example.com'), 1, 100000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent2@example.com'), 8, 800000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent3@example.com'), 9, 900000.00),
+    (gen_random_uuid(), (SELECT id FROM users WHERE email = 'agent1@example.com'), 10, 1000000.00);
 
--- Insert Property Analytics (50: one per property)
-INSERT INTO property_analytics (id, property_id, total_views, total_inquiries, conversion_rate, avg_time_on_market, last_updated) VALUES
-(1, 1, 150, 10, 6.67, '30 days', '2025-08-04 15:00:00+08'),
-(2, 2, 200, 15, 7.50, '28 days', '2025-08-04 15:01:00+08'),
-(3, 3, 120, 8, 6.67, '25 days', '2025-08-04 15:02:00+08'),
-(4, 4, 100, 5, 5.00, '20 days', '2025-08-04 15:03:00+08'),
-(5, 5, 180, 12, 6.67, '32 days', '2025-08-04 15:04:00+08'),
-(6, 6, 190, 14, 7.37, '30 days', '2025-08-04 15:05:00+08'),
-(7, 7, 160, 11, 6.88, '27 days', '2025-08-04 15:06:00+08'),
-(8, 8, 170, 13, 7.65, '29 days', '2025-08-04 15:07:00+08'),
-(9, 9, 140, 9, 6.43, '24 days', '2025-08-04 15:08:00+08'),
-(10, 10, 150, 10, 6.67, '26 days', '2025-08-04 15:09:00+08'),
-(11, 11, 210, 16, 7.62, '33 days', '2025-08-04 15:10:00+08'),
-(12, 12, 110, 7, 6.36, '22 days', '2025-08-04 15:11:00+08'),
-(13, 13, 185, 13, 7.03, '31 days', '2025-08-04 15:12:00+08'),
-(14, 14, 200, 14, 7.00, '28 days', '2025-08-04 15:13:00+08'),
-(15, 15, 155, 10, 6.45, '25 days', '2025-08-04 15:14:00+08'),
-(16, 16, 220, 17, 7.73, '34 days', '2025-08-04 15:15:00+08'),
-(17, 17, 115, 8, 6.96, '23 days', '2025-08-04 15:16:00+08'),
-(18, 18, 190, 12, 6.32, '30 days', '2025-08-04 15:17:00+08'),
-(19, 19, 205, 15, 7.32, '29 days', '2025-08-04 15:18:00+08'),
-(20, 20, 160, 11, 6.88, '27 days', '2025-08-04 15:19:00+08'),
-(21, 21, 230, 18, 7.83, '35 days', '2025-08-04 15:20:00+08'),
-(22, 22, 120, 9, 7.50, '24 days', '2025-08-04 15:21:00+08'),
-(23, 23, 195, 13, 6.67, '31 days', '2025-08-04 15:22:00+08'),
-(24, 24, 210, 15, 7.14, '30 days', '2025-08-04 15:23:00+08'),
-(25, 25, 165, 10, 6.06, '26 days', '2025-08-04 15:24:00+08'),
-(26, 26, 250, 20, 8.00, '40 days', '2025-08-04 15:25:00+08'),
-(27, 27, 125, 8, 6.40, '23 days', '2025-08-04 15:26:00+08'),
-(28, 28, 200, 14, 7.00, '29 days', '2025-08-04 15:27:00+08'),
-(29, 29, 215, 16, 7.44, '31 days', '2025-08-04 15:28:00+08'),
-(30, 30, 170, 11, 6.47, '27 days', '2025-08-04 15:29:00+08'),
-(31, 31, 240, 19, 7.92, '36 days', '2025-08-04 15:30:00+08'),
-(32, 32, 130, 9, 6.92, '24 days', '2025-08-04 15:31:00+08'),
-(33, 33, 205, 14, 6.83, '30 days', '2025-08-04 15:32:00+08'),
-(34, 34, 220, 16, 7.27, '32 days', '2025-08-04 15:33:00+08'),
-(35, 35, 175, 12, 6.86, '28 days', '2025-08-04 15:34:00+08'),
-(36, 36, 260, 21, 8.08, '38 days', '2025-08-04 15:35:00+08'),
-(37, 37, 135, 10, 7.41, '25 days', '2025-08-04 15:36:00+08'),
-(38, 38, 210, 15, 7.14, '31 days', '2025-08-04 15:37:00+08'),
-(39, 39, 225, 17, 7.56, '33 days', '2025-08-04 15:38:00+08'),
-(40, 40, 180, 12, 6.67, '28 days', '2025-08-04 15:39:00+08'),
-(41, 41, 270, 22, 8.15, '37 days', '2025-08-04 15:40:00+08'),
-(42, 42, 140, 10, 7.14, '26 days', '2025-08-04 15:41:00+08'),
-(43, 43, 215, 15, 6.98, '32 days', '2025-08-04 15:42:00+08'),
-(44, 44, 230, 17, 7.39, '34 days', '2025-08-04 15:43:00+08'),
-(45, 45, 185, 13, 7.03, '29 days', '2025-08-04 15:44:00+08'),
-(46, 46, 280, 23, 8.21, '39 days', '2025-08-04 15:45:00+08'),
-(47, 47, 145, 11, 7.59, '27 days', '2025-08-04 15:46:00+08'),
-(48, 48, 220, 16, 7.27, '33 days', '2025-08-04 15:47:00+08'),
-(49, 49, 235, 18, 7.66, '35 days', '2025-08-04 15:48:00+08'),
-(50, 50, 190, 14, 7.37, '30 days', '2025-08-04 15:49:00+08');
-
--- Insert Automation Workflows (20: various automation rules)
-INSERT INTO automation_workflows (id, name, trigger_type, action, status, created_at) VALUES
-(1, 'New Lead Email', 'NEW_LEAD', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:00:00+08'),
-(2, 'Inquiry Notification', 'INQUIRY', 'NOTIFY_AGENT', 'ACTIVE', '2025-07-01 09:01:00+08'),
-(3, 'Payment Confirmation', 'PAYMENT', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:02:00+08'),
-(4, 'Tour Scheduling', 'TOUR_REQUEST', 'CREATE_EVENT', 'ACTIVE', '2025-07-01 09:03:00+08'),
-(5, 'Lead Follow-Up', 'NEW_LEAD', 'SEND_SMS', 'ACTIVE', '2025-07-01 09:04:00+08'),
-(6, 'Open House Reminder', 'OPEN_HOUSE', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:05:00+08'),
-(7, 'Contract Signed Alert', 'CONTRACT_SIGNED', 'NOTIFY_ADMIN', 'ACTIVE', '2025-07-01 09:06:00+08'),
-(8, 'Property View Update', 'PROPERTY_VIEW', 'UPDATE_ANALYTICS', 'ACTIVE', '2025-07-01 09:07:00+08'),
-(9, 'Low Balance Warning', 'LOW_BALANCE', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:08:00+08'),
-(10, 'Agent Performance Report', 'WEEKLY_REPORT', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:09:00+08'),
-(11, 'Client Follow-Up', 'INQUIRY', 'SEND_SMS', 'ACTIVE', '2025-07-01 09:10:00+08'),
-(12, 'Property Status Update', 'PROPERTY_STATUS_CHANGE', 'NOTIFY_CLIENT', 'ACTIVE', '2025-07-01 09:11:00+08'),
-(13, 'Event Cancellation Alert', 'EVENT_CANCELLED', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:12:00+08'),
-(14, 'Lead Scoring Update', 'NEW_LEAD', 'UPDATE_CRM', 'ACTIVE', '2025-07-01 09:13:00+08'),
-(15, 'Payment Failed Alert', 'PAYMENT_FAILED', 'NOTIFY_CLIENT', 'ACTIVE', '2025-07-01 09:14:00+08'),
-(16, 'Open House Promotion', 'OPEN_HOUSE', 'SEND_SMS', 'ACTIVE', '2025-07-01 09:15:00+08'),
-(17, 'Contract Expiry Reminder', 'CONTRACT_EXPIRY', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:16:00+08'),
-(18, 'Property Inquiry Response', 'INQUIRY', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:17:00+08'),
-(19, 'Agent Assignment', 'NEW_LEAD', 'ASSIGN_AGENT', 'ACTIVE', '2025-07-01 09:18:00+08'),
-(20, 'Market Trend Alert', 'MARKET_UPDATE', 'SEND_EMAIL', 'ACTIVE', '2025-07-01 09:19:00+08');
+INSERT INTO property_analytics (id, property_id, total_views, total_offers) VALUES
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 1'), 100, 5),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 1'), 150, 3),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 1'), 120, 7),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 2'), 80, 2),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 2'), 200, 4),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 2'), 90, 6),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 3'), 110, 1),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'House 3'), 130, 8),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Condo 3'), 140, 9),
+    (gen_random_uuid(), (SELECT id FROM properties WHERE title = 'Apartment 4'), 100, 10);
 
 -- Re-enable RLS
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -722,4 +308,3 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upcoming_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_performances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE property_analytics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE automation_workflows ENABLE ROW LEVEL SECURITY;
