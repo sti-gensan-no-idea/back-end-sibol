@@ -1,261 +1,258 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Text, Enum
+"""
+Contract model for Real Estate Management System
+"""
+from sqlalchemy import Column, Integer, String, DateTime, Enum, Boolean, ForeignKey, Text, JSON
 from sqlalchemy.types import Numeric as Decimal
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
 import enum
-from datetime import datetime
+
 
 class ContractStatus(enum.Enum):
     DRAFT = "draft"
-    PENDING_SIGNATURE = "pending_signature"
+    PENDING_APPROVAL = "pending_approval"
     ACTIVE = "active"
-    EXPIRED = "expired"
-    TERMINATED = "terminated"
+    COMPLETED = "completed"
     CANCELLED = "cancelled"
+    TERMINATED = "terminated"
+    EXPIRED = "expired"
+
 
 class ContractType(enum.Enum):
-    RESIDENTIAL_LEASE = "residential_lease"
-    COMMERCIAL_LEASE = "commercial_lease"
-    SHORT_TERM_RENTAL = "short_term_rental"
-    PROPERTY_MANAGEMENT = "property_management"
+    RESERVATION_AGREEMENT = "reservation_agreement"
     PURCHASE_AGREEMENT = "purchase_agreement"
-    SUBLEASE = "sublease"
+    LEASE_AGREEMENT = "lease_agreement"
+    BROKER_AGREEMENT = "broker_agreement"
+    AGENT_AGREEMENT = "agent_agreement"
+    MAINTENANCE_AGREEMENT = "maintenance_agreement"
 
-class PaymentFrequency(enum.Enum):
-    MONTHLY = "monthly"
-    QUARTERLY = "quarterly"
-    ANNUALLY = "annually"
-    WEEKLY = "weekly"
-    ONE_TIME = "one_time"
 
 class Contract(Base):
     __tablename__ = "contracts"
 
-    # Primary identifiers
     id = Column(Integer, primary_key=True, index=True)
-    contract_number = Column(String(50), unique=True, nullable=False, index=True)
+    contract_number = Column(String(100), unique=True, nullable=False, index=True)
     
-    # Relationships
-    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
-    tenant_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Primary tenant
-    landlord_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # Parties involved
+    client_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Buyer/Tenant
+    developer_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Property owner/Developer
+    agent_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Handling agent
+    broker_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Broker
     
     # Contract details
-    contract_type = Column(Enum(ContractType), nullable=False, default=ContractType.RESIDENTIAL_LEASE)
-    status = Column(Enum(ContractStatus), nullable=False, default=ContractStatus.DRAFT)
-    title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)  # Full contract text
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
+    contract_type = Column(Enum(ContractType), nullable=False)
+    status = Column(Enum(ContractStatus), default=ContractStatus.DRAFT)
     
     # Financial terms
-    monthly_rent = Column(Decimal(10, 2), nullable=False)
-    security_deposit = Column(Decimal(10, 2), nullable=False, default=0)
-    late_fee = Column(Decimal(10, 2), nullable=True)
-    late_fee_grace_period = Column(Integer, default=5)  # days
-    payment_frequency = Column(Enum(PaymentFrequency), default=PaymentFrequency.MONTHLY)
+    total_amount = Column(Decimal(15, 2), nullable=False)
+    reservation_fee = Column(Decimal(15, 2), default=0.00)
+    downpayment_amount = Column(Decimal(15, 2), nullable=False)
+    equity_amount = Column(Decimal(15, 2))
+    loanable_amount = Column(Decimal(15, 2))
+    monthly_payment = Column(Decimal(15, 2))
     
-    # Date fields
-    start_date = Column(DateTime, nullable=False)
-    end_date = Column(DateTime, nullable=False)
-    move_in_date = Column(DateTime, nullable=True)
-    move_out_date = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    signed_at = Column(DateTime, nullable=True)
+    # Payment schedule
+    downpayment_months = Column(Integer, default=12)  # Months to pay downpayment
+    total_contract_months = Column(Integer)
     
-    # Contract terms
-    is_renewable = Column(Boolean, default=True)
-    auto_renewal = Column(Boolean, default=False)
-    renewal_notice_period = Column(Integer, default=30)  # days
-    termination_notice_period = Column(Integer, default=30)  # days
+    # Commission structure
+    agent_commission_rate = Column(Decimal(5, 2))  # Percentage
+    broker_commission_rate = Column(Decimal(5, 2))  # Percentage
+    agent_commission_amount = Column(Decimal(15, 2))
+    broker_commission_amount = Column(Decimal(15, 2))
     
-    # Utilities and services
-    utilities_included = Column(Text, nullable=True)  # JSON string
-    services_included = Column(Text, nullable=True)  # JSON string
+    # Construction and delivery
+    construction_start_condition = Column(Text)  # e.g., "50% downpayment received"
+    estimated_completion_date = Column(DateTime(timezone=True))
+    actual_completion_date = Column(DateTime(timezone=True))
+    turnover_date = Column(DateTime(timezone=True))
     
-    # Rules and restrictions
-    pet_policy = Column(Text, nullable=True)
-    smoking_allowed = Column(Boolean, default=False)
-    subletting_allowed = Column(Boolean, default=False)
-    max_occupants = Column(Integer, nullable=True)
-    
-    # Legal and compliance
-    governing_law = Column(String(100), nullable=True)
-    jurisdiction = Column(String(100), nullable=True)
+    # Legal terms
+    terms_and_conditions = Column(Text)
+    special_provisions = Column(Text)
+    cancellation_policy = Column(Text)
     
     # Document management
-    original_document_path = Column(String(500), nullable=True)
-    signed_document_path = Column(String(500), nullable=True)
-    template_id = Column(Integer, nullable=True)  # Reference to contract template
+    contract_template = Column(String(500))  # Template used
+    signed_contract_url = Column(String(500))  # Final signed contract
+    attachments = Column(JSON)  # Array of attachment URLs
     
-    # AI and automation
-    ai_generated = Column(Boolean, default=False)
-    ai_analysis = Column(Text, nullable=True)  # AI analysis results
-    risk_score = Column(Decimal(3, 2), nullable=True)  # 0.00 to 1.00
+    # Digital signatures
+    client_signed = Column(Boolean, default=False)
+    client_signature = Column(Text)  # Digital signature data
+    client_signed_at = Column(DateTime(timezone=True))
     
-    # Signatures and approval
-    tenant_signed = Column(Boolean, default=False)
-    landlord_signed = Column(Boolean, default=False)
-    tenant_signature_date = Column(DateTime, nullable=True)
-    landlord_signature_date = Column(DateTime, nullable=True)
-    witness_required = Column(Boolean, default=False)
-    notarization_required = Column(Boolean, default=False)
+    developer_signed = Column(Boolean, default=False)
+    developer_signature = Column(Text)
+    developer_signed_at = Column(DateTime(timezone=True))
+    
+    agent_signed = Column(Boolean, default=False)
+    agent_signature = Column(Text)
+    agent_signed_at = Column(DateTime(timezone=True))
+    
+    # Witness signatures
+    witness1_name = Column(String(200))
+    witness1_signature = Column(Text)
+    witness1_signed_at = Column(DateTime(timezone=True))
+    
+    witness2_name = Column(String(200))
+    witness2_signature = Column(Text)
+    witness2_signed_at = Column(DateTime(timezone=True))
+    
+    # Contract lifecycle
+    effective_date = Column(DateTime(timezone=True))
+    expiry_date = Column(DateTime(timezone=True))
+    renewal_date = Column(DateTime(timezone=True))
+    
+    # Status tracking
+    approved_by = Column(Integer, ForeignKey("users.id"))
+    approved_at = Column(DateTime(timezone=True))
+    cancelled_by = Column(Integer, ForeignKey("users.id"))
+    cancellation_reason = Column(Text)
+    cancelled_at = Column(DateTime(timezone=True))
+    
+    # Metadata
+    metadata = Column(JSON)  # Additional contract data
+    notes = Column(Text)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
+    client = relationship("User", foreign_keys=[client_id], back_populates="tenant_contracts")
+    developer = relationship("User", foreign_keys=[developer_id])
+    agent = relationship("User", foreign_keys=[agent_id])
+    broker = relationship("User", foreign_keys=[broker_id])
     property = relationship("Property", back_populates="contracts")
-    tenant = relationship("User", foreign_keys=[tenant_id], back_populates="tenant_contracts")
-    landlord = relationship("User", foreign_keys=[landlord_id], back_populates="landlord_contracts")
+    approver = relationship("User", foreign_keys=[approved_by])
+    canceller = relationship("User", foreign_keys=[cancelled_by])
+    payments = relationship("Payment", back_populates="contract")
     
-    # Additional relationships for advanced features
-    amendments = relationship("ContractAmendment", back_populates="contract", cascade="all, delete-orphan")
-    violations = relationship("ContractViolation", back_populates="contract", cascade="all, delete-orphan")
-    renewals = relationship("ContractRenewal", back_populates="original_contract", cascade="all, delete-orphan")
+    @property
+    def is_fully_signed(self) -> bool:
+        """Check if contract is fully signed by all required parties"""
+        required_signatures = [self.client_signed, self.developer_signed]
+        if self.agent_id:
+            required_signatures.append(self.agent_signed)
+        return all(required_signatures)
     
     @property
     def is_active(self) -> bool:
         """Check if contract is currently active"""
-        return (
-            self.status == ContractStatus.ACTIVE and
-            self.start_date <= datetime.now() <= self.end_date
-        )
+        return self.status == ContractStatus.ACTIVE
     
     @property
-    def days_until_expiry(self) -> int:
-        """Calculate days until contract expires"""
-        if self.end_date:
-            delta = self.end_date - datetime.now()
-            return max(0, delta.days)
-        return 0
+    def total_commission(self) -> Decimal:
+        """Calculate total commission amount"""
+        total = Decimal('0.00')
+        if self.agent_commission_amount:
+            total += self.agent_commission_amount
+        if self.broker_commission_amount:
+            total += self.broker_commission_amount
+        return total
     
     @property
-    def is_renewable_now(self) -> bool:
-        """Check if contract can be renewed now"""
-        if not self.is_renewable:
+    def payment_progress(self) -> dict:
+        """Get payment progress for this contract"""
+        # This would calculate based on related payments
+        total_paid = sum([p.amount for p in self.payments if p.is_successful])
+        progress_percentage = (total_paid / self.total_amount * 100) if self.total_amount > 0 else 0
+        
+        return {
+            "total_amount": float(self.total_amount),
+            "total_paid": float(total_paid),
+            "remaining": float(self.total_amount - total_paid),
+            "progress_percentage": float(progress_percentage)
+        }
+    
+    def can_start_construction(self) -> bool:
+        """Check if construction can be started based on payment received"""
+        if not self.property:
             return False
-        days_left = self.days_until_expiry
-        return days_left <= self.renewal_notice_period
+        
+        total_paid = sum([p.amount for p in self.payments if p.is_successful])
+        trigger_amount = self.total_amount * (self.property.construction_trigger_percentage / 100)
+        
+        return total_paid >= trigger_amount
     
-    @property
-    def total_value(self) -> float:
-        """Calculate total contract value"""
-        if self.start_date and self.end_date and self.monthly_rent:
-            months = (self.end_date.year - self.start_date.year) * 12 + (self.end_date.month - self.start_date.month)
-            return float(self.monthly_rent * months)
-        return 0.0
+    def __repr__(self):
+        return f"<Contract(id={self.id}, contract_number='{self.contract_number}', status='{self.status.value}')>"
 
 
 class ContractAmendment(Base):
+    """Contract amendments and modifications"""
     __tablename__ = "contract_amendments"
     
     id = Column(Integer, primary_key=True, index=True)
     contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False)
+    
+    # Amendment details
     amendment_number = Column(Integer, nullable=False)
-    
-    title = Column(String(200), nullable=False)
+    title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    changes = Column(Text, nullable=False)  # JSON string of changes
     
-    effective_date = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=func.now())
+    # Changes made
+    changes = Column(JSON)  # Structured data of what changed
+    old_values = Column(JSON)  # Previous values
+    new_values = Column(JSON)  # New values
+    
+    # Legal text
+    amendment_text = Column(Text)
+    
+    # Approval and signatures
+    requires_client_approval = Column(Boolean, default=True)
+    requires_developer_approval = Column(Boolean, default=True)
+    
+    client_approved = Column(Boolean, default=False)
+    client_approved_at = Column(DateTime(timezone=True))
+    
+    developer_approved = Column(Boolean, default=False)
+    developer_approved_at = Column(DateTime(timezone=True))
+    
+    # Status
+    status = Column(String(50), default="pending")  # pending, approved, rejected
+    effective_date = Column(DateTime(timezone=True))
+    
+    # Created by
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     
-    tenant_approved = Column(Boolean, default=False)
-    landlord_approved = Column(Boolean, default=False)
-    tenant_approval_date = Column(DateTime, nullable=True)
-    landlord_approval_date = Column(DateTime, nullable=True)
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    contract = relationship("Contract", back_populates="amendments")
-    created_by_user = relationship("User")
-
-
-class ContractViolation(Base):
-    __tablename__ = "contract_violations"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False)
-    
-    violation_type = Column(String(100), nullable=False)
-    description = Column(Text, nullable=False)
-    severity = Column(String(20), nullable=False)  # low, medium, high, critical
-    
-    reported_date = Column(DateTime, default=func.now())
-    reported_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    resolved = Column(Boolean, default=False)
-    resolution_date = Column(DateTime, nullable=True)
-    resolution_notes = Column(Text, nullable=True)
-    
-    fine_amount = Column(Decimal(10, 2), nullable=True)
-    fine_paid = Column(Boolean, default=False)
-    
-    contract = relationship("Contract", back_populates="violations")
-    reporter = relationship("User")
-
-
-class ContractRenewal(Base):
-    __tablename__ = "contract_renewals"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    original_contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False)
-    new_contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=True)
-    
-    renewal_type = Column(String(50), nullable=False)  # automatic, manual, negotiated
-    requested_date = Column(DateTime, default=func.now())
-    requested_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    new_terms = Column(Text, nullable=True)  # JSON string of proposed changes
-    new_rent = Column(Decimal(10, 2), nullable=True)
-    new_end_date = Column(DateTime, nullable=True)
-    
-    status = Column(String(50), default="pending")  # pending, approved, rejected, completed
-    approved_date = Column(DateTime, nullable=True)
-    completed_date = Column(DateTime, nullable=True)
-    
-    notes = Column(Text, nullable=True)
-    
-    original_contract = relationship("Contract", foreign_keys=[original_contract_id], back_populates="renewals")
-    new_contract = relationship("Contract", foreign_keys=[new_contract_id])
-    requester = relationship("User")
+    # Relationships
+    contract = relationship("Contract")
+    creator = relationship("User", foreign_keys=[created_by])
 
 
 class ContractTemplate(Base):
+    """Contract templates for different types of agreements"""
     __tablename__ = "contract_templates"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(200), nullable=False)
+    name = Column(String(255), nullable=False)
     contract_type = Column(Enum(ContractType), nullable=False)
     
-    content_template = Column(Text, nullable=False)  # Template with placeholders
-    default_terms = Column(Text, nullable=True)  # JSON string of default terms
+    # Template content
+    template_content = Column(Text, nullable=False)  # HTML template with placeholders
+    required_fields = Column(JSON)  # Fields that must be filled
+    optional_fields = Column(JSON)  # Optional fields
     
+    # Configuration
     is_active = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)
+    version = Column(String(20), default="1.0")
     
-    created_at = Column(DateTime, default=func.now())
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    # Metadata
+    description = Column(Text)
+    created_by = Column(Integer, ForeignKey("users.id"))
     
-    usage_count = Column(Integer, default=0)
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    creator = relationship("User")
-
-
-class ContractSignature(Base):
-    __tablename__ = "contract_signatures"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    signature_type = Column(String(50), nullable=False)  # electronic, digital, physical
-    signature_data = Column(Text, nullable=True)  # Base64 encoded signature image or hash
-    
-    signed_at = Column(DateTime, default=func.now())
-    ip_address = Column(String(45), nullable=True)
-    user_agent = Column(String(500), nullable=True)
-    
-    verified = Column(Boolean, default=False)
-    verification_method = Column(String(100), nullable=True)
-    
-    contract = relationship("Contract")
-    signer = relationship("User")
+    # Relationships
+    creator = relationship("User", foreign_keys=[created_by])
